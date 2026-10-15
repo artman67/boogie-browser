@@ -26,7 +26,7 @@ import { createCoreHost } from './index';
  * small generated ones committed in test/fixtures/libraries (test/fixtures/build.test.ts), so these
  * tests run on any clone. BOOGIE_TEST_FIXTURES=1 uses the generated ones anyway.
  */
-const REAL = resolve('research/sandbox/templates');
+const REAL = resolve('private/research/sandbox/templates');
 const TEMPLATES =
   !process.env.BOOGIE_TEST_FIXTURES && existsSync(join(REAL, 'art-archive.library', 'images'))
     ? REAL
@@ -60,7 +60,7 @@ export interface Sandbox {
   /**
    * Write an item the way the partner's Eagle would: its whole record from memory (`from`,
    * default the file on disk) with `edit` applied, lastModified = now, then mtime.json raised
-   * (unless `raise: false`, when its mtime.json update was skipped, eagle-proof FINDINGS 3).
+   * (unless `raise: false`, when its mtime.json update was skipped).
    */
   writeAsEagle(
     id: string,

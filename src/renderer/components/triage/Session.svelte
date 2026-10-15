@@ -1,5 +1,5 @@
 <script lang="ts">
-  // One triage session on screen (mockup #4): the queue on the left, one big item in the middle,
+  // One triage session on screen: the queue on the left, one big item in the middle,
   // clues on the right, the keys along the bottom. Covers the whole window; Esc goes back.
   import { onMount, untrack } from 'svelte';
   import Inbox from '@lucide/svelte/icons/inbox';

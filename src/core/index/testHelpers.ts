@@ -7,7 +7,7 @@ import type { ChangeContext, Doc, EagleLibrary, NewItemInit } from '../contracts
 import type { IndexFs } from './load';
 
 export const PROJECT = resolve(import.meta.dirname, '../../..');
-export const TEMPLATES = join(PROJECT, 'research/sandbox/templates');
+export const TEMPLATES = join(PROJECT, 'private/research/sandbox/templates');
 export const SCRATCH = join(PROJECT, '.tmp/index');
 
 const unsupported = (): never => {

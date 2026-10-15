@@ -1,5 +1,5 @@
-// The record for a brand-new item, with keys in the order Eagle writes them
-// (format-spec 5.2, live-behavior 1). Pure: no I/O.
+// The record for a brand-new item, with keys in the order Eagle writes them.
+// Pure: no I/O.
 import type { EagleItemRecord } from '../../shared/types';
 import type { NewItemInit } from '../contracts';
 import { normalizeTags } from './edits';
@@ -16,7 +16,7 @@ const WIDTH_FIRST = new Set(
 );
 /** Eagle's palette analyzer needs a size, and skips images taller than this many times their width. */
 const MAX_PALETTE_ASPECT = 30_000_000 / 480 ** 2;
-/** SVG flags Eagle's svg generator writes before the size (thumbs-palette-import §3). */
+/** SVG flags Eagle's svg generator writes before the size. */
 const SVG_FLAGS = ['removeThumbnail', 'forceThumbnail'];
 
 /** Keys `createItem` sets itself, so `init.extra` may not override them. */
@@ -48,8 +48,7 @@ const OWN_KEYS = new Set([
  * `id, name, size, btime, mtime, ext, tags, folders, isDeleted, url, annotation, modificationTime,
  * [star], height, width, [extra...], [duration], [noThumbnail], [noPreview], [processingPalette],
  * lastModified, [palettes]`. Video and other width-first types get `width, height` with
- * `noThumbnail` before them (a webp: `noThumbnail, width, height`, eagle-proof D "Import webp",
- * library-survey §4); an SVG gets its flags and `noThumbnail` before the size, like Eagle's svg
+ * `noThumbnail` before them (a webp: `noThumbnail, width, height`); an SVG gets its flags and `noThumbnail` before the size, like Eagle's svg
  * generator.
  */
 export function buildItemRecord(

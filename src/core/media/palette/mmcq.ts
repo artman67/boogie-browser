@@ -1,5 +1,4 @@
-// Eagle's color palette, reproduced from research/format-notes/thumbs-palette-import.md
-// section 2. It is the public MMCQ (modified median cut) quantizer with Eagle's changes:
+// Eagle's color palette, reproduced. It is the public MMCQ (modified median cut) quantizer with Eagle's changes:
 // 12 colors requested, 5 cuts per phase, alpha below 170 skipped, a sampling stride that
 // depends on buffer size, and the original MMCQ "else if" bounds quirk. The quirks change the
 // output, so they stay.

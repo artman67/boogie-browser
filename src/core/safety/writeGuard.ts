@@ -4,7 +4,7 @@
 // Two rules:
 // 1. The target must be inside one of the writable roots (settings.writableRoots, or
 //    BOOGIE_WRITABLE_ROOTS, colon-separated). In development that is only this project's
-//    .tmp/ and research/sandbox/libs/.
+//    .tmp/ and private/research/sandbox/libs/.
 // 2. Protected places (Dropbox, removable/mounted drives, ~/Staging) stay blocked even if a
 //    root covers them, unless settings.allowProtectedWrites is on. Only the user turns that on,
 //    in Settings, once they decide Boogie may edit real libraries. A Dropbox folder anywhere

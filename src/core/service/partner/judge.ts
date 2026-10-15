@@ -43,9 +43,9 @@ export function judgeOutsideWrite(w: {
 /**
  * Did their Eagle run without a break from before `sentAt` (our raise went out) until `until`
  * (their rewrite or save arrived)? `signals`: when their writes happened, our clock, ascending. A
- * break means they may have quit, and a cached start adopts our value without showing it
- * (FINDINGS 1). Quitting itself rewrites mtime.json, so "they wrote something shortly before"
- * alone isn't enough (review5 must-fix 2).
+ * break means they may have quit, and a cached start adopts our value without showing it.
+ * Quitting itself rewrites mtime.json, so "they wrote something shortly before"
+ * alone isn't enough.
  */
 export function ranThrough(
   sentAt: number,
@@ -81,7 +81,7 @@ export interface Sent {
 
 /**
  * Their rewrite of mtime.json from memory holds exactly the value we last wrote, sent while their
- * Eagle ran and kept running, and not a value they could have skipped (FINDINGS-3 R3-1): their poll
+ * Eagle ran and kept running, and not a value they could have skipped: their poll
  * saw it go up and re-read the item into their window. Not proof (a restart inside the gap slips
  * through), so it only ever downgrades an old copy to "unsure".
  */
@@ -106,7 +106,7 @@ export function seenByRewrite(
  * marked saves don't look old enough), or exactly one more than a value that Boogie also knew:
  * Boogie writes a value unmarked only when its floor was `prev + 1` (the item's previous
  * lastModified), `entry + 1` (its mtime.json entry) or `root + 1` (the root's time), and an Eagle
- * Date.now() lands on one of those exact values almost never (review6 must-fix 2).
+ * Date.now() lands on one of those exact values almost never.
  */
 export function isBoogieValue(
   stamp: unknown,
@@ -138,13 +138,13 @@ export function onlyStampChanged(before: Rec | null, after: Rec | null): boolean
 }
 
 /**
- * What a partner's rewrite of mtime.json from its memory did with one of our recent raises
- * (FINDINGS 2, FINDINGS-2 R2-5). `now`: the id's value in the file now.
+ * What a partner's rewrite of mtime.json from its memory did with one of our recent raises.
+ * `now`: the id's value in the file now.
  * - reraise: it put our value back or dropped the id. Their memory holds an older value (or none),
  *   so writing our same value to mtime.json again is enough: their poll sees it go up (or sees a
  *   new id, which background.js refreshLibrary reads as "create", known item or not) and reads the
- *   file (review5 should-fix 3). No need to rewrite the item. Read from Eagle's code; not yet run
- *   against real Eagle (review6 should-fix 8).
+ *   file. No need to rewrite the item. Read from Eagle's code; not yet run
+ *   against real Eagle.
  * - bump: it kept our value but the id had no entry before (its map lacked it while the item was
  *   known): maybe adopted without a read, so only a higher value, a touch, makes it look.
  * - kept: their memory holds our value: their poll saw it go up and re-read the item. (A new item
@@ -167,10 +167,10 @@ export type TouchChoice = 'touch' | 'notNeeded' | 'changedSince' | 'newerAnnounc
  * - notNeeded: nothing of ours waits for their Eagle (not pending, or seen), and no raise of ours
  *   was undone (`urgent`) while the file is still the version we raised.
  * - changedSince: the file isn't what the index has: an outside write landed, so it is read and
- *   logged first; a touch would re-send it as ours (review4 must-fix 2).
+ *   logged first; a touch would re-send it as ours.
  * - newerAnnounced: mtime.json holds a value above the file's own that isn't ours: their newer
  *   version is on its way (Dropbox delivered mtime.json first). Touching now would put ours above
- *   it and their old copy would then land as a plain edit (review4 must-fix 9).
+ *   it and their old copy would then land as a plain edit.
  * - capped: re-sent too often lately; their Eagle isn't re-reading it, so stop answering every save.
  */
 export function touchChoice(t: {

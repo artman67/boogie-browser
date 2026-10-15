@@ -1,4 +1,4 @@
-// Names Boogie writes into a library. Eagle's own chain (format-spec 5.5) plus two Linux/Dropbox
+// Names Boogie writes into a library. Eagle's own chain plus two Linux/Dropbox
 // rules Eagle doesn't need: no trailing dots (Windows can't sync them) and a byte cap so
 // `<name>_thumbnail.png` always fits Linux's 255-byte file name limit.
 

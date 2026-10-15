@@ -3,7 +3,7 @@
 // behavior only): its window shows the records it loaded; a save writes the whole record from
 // memory with lastModified = its Date.now(); ~3 s later it rewrites mtime.json from its memory;
 // its poll re-reads an item only when the mtime.json value went up, and skips one less than
-// 500 ms behind its own clock. Scenarios: test/eagle-proof FINDINGS(-2), .tmp/review4-core probes.
+// 500 ms behind its own clock.
 import { copyFileSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -72,7 +72,7 @@ class PartnersEagle {
     this.map = map;
     for (const id of this.s.itemIds) this.shown.set(id, readFileSync(this.file(id), 'utf8'));
   }
-  /** A cached start (FINDINGS 1): memory adopts mtime.json, the window keeps its old copies. */
+  /** A cached start: memory adopts mtime.json, the window keeps its old copies. */
   cachedStart(): void {
     const { all: _all, ...map } = mtimeOf(this.s);
     this.map = map;
@@ -122,7 +122,7 @@ describe.skipIf(!sandboxAvailable)("The partner's Eagle writes over a change of 
   it('an old copy with an edit of theirs: logged as "may have written", counted in the status, never repaired by itself', async () => {
     const s = await shared();
     const [a] = s.itemIds;
-    const eagle = new PartnersEagle(s); // its window keeps the old copy (FINDINGS 1)
+    const eagle = new PartnersEagle(s); // its window keeps the old copy
     await s.host.api.updateItems([a], { addTags: ['mine'] });
     expect((await s.host.api.getStatus()).partner).toMatchObject({ active: false, pending: 1 });
     eagle.save(a, (r) => (r.star = 5));
@@ -164,7 +164,7 @@ describe.skipIf(!sandboxAvailable)("The partner's Eagle writes over a change of 
     await expect(s.host.api.keepTheirs(plain.groupId)).rejects.toThrow(/may have been overwritten/);
   });
 
-  it('their deliberate replacements are only offered (review5 must-fix 1: Q1a, Q1b)', async () => {
+  it('their deliberate replacements are only offered', async () => {
     const s = await shared();
     const [a, b, c] = s.itemIds;
     const anatomy = (await s.host.api.createFolder('Anatomy', null)).id;
@@ -192,7 +192,7 @@ describe.skipIf(!sandboxAvailable)("The partner's Eagle writes over a change of 
     ]);
   });
 
-  it('a deliberate revert while their Eagle runs is logged with the button, never repaired (R2-1, P1, P10)', async () => {
+  it('a deliberate revert while their Eagle runs is logged with the button, never repaired', async () => {
     const s = await shared();
     const [a, b] = s.itemIds;
     const eagle = new PartnersEagle(s);
@@ -208,7 +208,7 @@ describe.skipIf(!sandboxAvailable)("The partner's Eagle writes over a change of 
     expect(s.read(a).tags).not.toContain('wip');
     expect(await repairs(s)).toEqual([]);
 
-    // The same for a restore of an item you trashed (P2).
+    // The same for a restore of an item you trashed.
     await s.host.api.trashItems([b]);
     await flushed(s, b);
     eagle.poll();
@@ -264,7 +264,7 @@ describe.skipIf(!sandboxAvailable)("The partner's Eagle writes over a change of 
     expect(await repairs(s)).toEqual([]);
   });
 
-  it('an Eagle that quit is not "seen": the edit still reaches their window at their next start (review5 must-fix 2, Q2)', async () => {
+  it('an Eagle that quit is not "seen": the edit still reaches their window at their next start', async () => {
     PARTNER_TIMING.activeMs = 4000;
     const s = await shared();
     const [a, b, c] = s.itemIds;
@@ -286,7 +286,7 @@ describe.skipIf(!sandboxAvailable)("The partner's Eagle writes over a change of 
     expect(s.read(a).tags).toContain('mine');
   });
 
-  it('quick folder writes right after theirs never push a stamp into their future (FINDINGS-3 R3-1)', async () => {
+  it('quick folder writes right after theirs never push a stamp into their future', async () => {
     const s = await shared();
     const [a, b] = s.itemIds;
     const eagle = new PartnersEagle(s);
@@ -310,7 +310,7 @@ describe.skipIf(!sandboxAvailable)("The partner's Eagle writes over a change of 
 });
 
 describe.skipIf(!sandboxAvailable)('re-sending never loses an outside write', () => {
-  it('their racing old copy, then their rewrite from memory: logged, the UI told, and the button puts it right (review4 must-fix 2, P4)', async () => {
+  it('their racing old copy, then their rewrite from memory: logged, the UI told, and the button puts it right', async () => {
     const s = await shared();
     const [a] = s.itemIds;
     const base = s.read(a);
@@ -318,7 +318,7 @@ describe.skipIf(!sandboxAvailable)('re-sending never loses an outside write', ()
     await flushed(s, a);
     const mark = s.events.length;
     // Their Eagle saved its old copy with their rating right after us, skipping its mtime.json
-    // update (FINDINGS 3); ~3 s later it rewrote mtime.json from memory, a back to its old value.
+    // update; ~3 s later it rewrote mtime.json from memory, a back to its old value.
     const theirs = { ...base, star: 5, lastModified: eagleNow() };
     writeFileSync(join(s.libPath, 'images', `${a}.info`, 'metadata.json'), JSON.stringify(theirs));
     await sleep(2500);
@@ -334,7 +334,7 @@ describe.skipIf(!sandboxAvailable)('re-sending never loses an outside write', ()
     expect(told).toBe(true);
   });
 
-  it('their mtime.json arriving before their file: no re-send over it, and their old copy is caught when it lands (review4 must-fix 9, P3)', async () => {
+  it('their mtime.json arriving before their file: no re-send over it, and their old copy is caught when it lands', async () => {
     const s = await shared();
     const [a] = s.itemIds;
     const base = s.read(a);
@@ -354,7 +354,7 @@ describe.skipIf(!sandboxAvailable)('re-sending never loses an outside write', ()
     expect(s.read(a).star).toBe(5);
   });
 
-  it('an Eagle that keeps putting a raise back gets it at most 3 times, then a warning (review4 should-fix 1, P5)', async () => {
+  it('an Eagle that keeps putting a raise back gets it at most 3 times, then a warning', async () => {
     const s = await shared();
     const [a, b] = s.itemIds;
     const eagle = new PartnersEagle(s); // never polls: it keeps its old value for a
@@ -380,7 +380,7 @@ describe.skipIf(!sandboxAvailable)('re-sending never loses an outside write', ()
     );
   });
 
-  it('new items their rewrite kept are left alone; ones it dropped go back in mtime.json (R2-5, review5 should-fix 3)', async () => {
+  it('new items their rewrite kept are left alone; ones it dropped go back in mtime.json', async () => {
     const s = await shared();
     const [, b] = s.itemIds;
     const originals = readdirSync(join(s.libPath, 'images'))
@@ -416,7 +416,7 @@ describe.skipIf(!sandboxAvailable)('re-sending never loses an outside write', ()
   });
 });
 
-describe.skipIf(!sandboxAvailable)('clocks (R2-2)', () => {
+describe.skipIf(!sandboxAvailable)('clocks', () => {
   it("our clock 30 s ahead of theirs: their Eagle doesn't skip the edit, and it survives their next save", async () => {
     const s = await shared();
     const [a] = s.itemIds;
@@ -447,7 +447,7 @@ describe.skipIf(!sandboxAvailable)('clocks (R2-2)', () => {
 describe.skipIf(!sandboxAvailable)(
   'another Boogie on the same library (one user on two machines)',
   () => {
-    it('its touches are not logged, its edits are named as such, and it is not the partner Eagle (should-fix 3, P6)', async () => {
+    it('its touches are not logged, its edits are named as such, and it is not the partner Eagle', async () => {
       const s = await shared();
       const home = join(s.dir, 'homeB');
       mkdirSync(join(home, 'config'), { recursive: true });
@@ -494,75 +494,69 @@ describe.skipIf(!sandboxAvailable)(
   },
 );
 
-describe.skipIf(!sandboxAvailable)(
-  'a Boogie on another computer, unmarked (review6 must-fix 2)',
-  () => {
-    it("its write right after the partner's folder change is its own: our change stays protected", async () => {
-      const s = await shared();
-      const home = join(s.dir, 'homeB2');
-      mkdirSync(join(home, 'config'), { recursive: true });
-      writeFileSync(join(home, 'config/settings.json'), JSON.stringify({ writableRoots: [s.dir] }));
-      const hostB = await createCoreHost({
-        paths: {
-          config: join(home, 'config'),
-          cache: join(home, 'cache'),
-          data: join(home, 'data'),
-          tmp: join(home, 'cache/tmp'),
-        },
-        deps: {
-          eagleMonitor: { check: async () => ({ running: false, openLibraryPath: null }) },
-          dropbox: { check: async () => ({ state: 'idle', detail: 'Up to date' }) },
-        },
-        discovery: { home: s.dir, settingsFiles: [], dropboxDir: join(s.dir, 'no-dropbox') },
-      });
-      closers.push(() => hostB.close());
-      await hostB.api.addLibrary(s.libPath);
-      await hostB.api.setLibraryOptions(s.libPath, { partnerName: 'Sam', shared: true });
-      await hostB.api.openLibrary(s.libPath);
-      await hostB.api.refresh({ full: true });
-
-      const [x] = s.itemIds;
-      const original = s.read(x); // what the partner's Eagle window still shows (a cached start)
-      await s.host.api.updateItems([x], { addTags: ['fromA'] });
-      await sleep(2500);
-      expect((await s.host.api.getStatus()).partner?.pending).toBe(1);
-      // The partner's Eagle creates a folder (its root save stamps its Date.now()).
-      setRoot(s, (root) => {
-        root.folders.push({
-          id: 'MPARTNERFLDR1',
-          name: 'Sam new',
-          description: '',
-          children: [],
-          modificationTime: Date.now(),
-          tags: [],
-          password: '',
-          passwordTips: '',
-        });
-        root.modificationTime = eagleNow();
-      });
-      await sleep(1500); // both Boogies take the root in
-      // The user on machine B files x into it a moment later: B's stamp is the root time + 1, unmarked.
-      await hostB.api.updateItems([x], { addFolders: ['MPARTNERFLDR1'] });
-      await sleep(6000);
-      const statusA = (await s.host.api.getStatus()).partner;
-      expect(statusA?.pending).toBe(1); // still waiting for the partner's Eagle
-      const onA = (await history(s)).find(
-        (h) => h.itemIds.includes(x) && h.actor.kind === 'external',
-      );
-      expect(onA?.actor.name).toBe('Boogie on another computer');
-      // The partner's Eagle, still on its old copy, rates x: A offers its change back.
-      const theirs = { ...original, star: 5, lastModified: eagleNow() };
-      writeFileSync(
-        join(s.libPath, 'images', `${x}.info`, 'metadata.json'),
-        JSON.stringify(theirs),
-      );
-      s.rewriteMtimeAsEagle({ [x]: theirs.lastModified });
-      const stale = await entry(s, (h) => !!h.staleOverwrite && h.itemIds.includes(x));
-      await s.host.api.undo(stale.groupId);
-      expect(s.read(x).tags).toContain('fromA');
+describe.skipIf(!sandboxAvailable)('a Boogie on another computer, unmarked', () => {
+  it("its write right after the partner's folder change is its own: our change stays protected", async () => {
+    const s = await shared();
+    const home = join(s.dir, 'homeB2');
+    mkdirSync(join(home, 'config'), { recursive: true });
+    writeFileSync(join(home, 'config/settings.json'), JSON.stringify({ writableRoots: [s.dir] }));
+    const hostB = await createCoreHost({
+      paths: {
+        config: join(home, 'config'),
+        cache: join(home, 'cache'),
+        data: join(home, 'data'),
+        tmp: join(home, 'cache/tmp'),
+      },
+      deps: {
+        eagleMonitor: { check: async () => ({ running: false, openLibraryPath: null }) },
+        dropbox: { check: async () => ({ state: 'idle', detail: 'Up to date' }) },
+      },
+      discovery: { home: s.dir, settingsFiles: [], dropboxDir: join(s.dir, 'no-dropbox') },
     });
-  },
-);
+    closers.push(() => hostB.close());
+    await hostB.api.addLibrary(s.libPath);
+    await hostB.api.setLibraryOptions(s.libPath, { partnerName: 'Sam', shared: true });
+    await hostB.api.openLibrary(s.libPath);
+    await hostB.api.refresh({ full: true });
+
+    const [x] = s.itemIds;
+    const original = s.read(x); // what the partner's Eagle window still shows (a cached start)
+    await s.host.api.updateItems([x], { addTags: ['fromA'] });
+    await sleep(2500);
+    expect((await s.host.api.getStatus()).partner?.pending).toBe(1);
+    // The partner's Eagle creates a folder (its root save stamps its Date.now()).
+    setRoot(s, (root) => {
+      root.folders.push({
+        id: 'MPARTNERFLDR1',
+        name: 'Sam new',
+        description: '',
+        children: [],
+        modificationTime: Date.now(),
+        tags: [],
+        password: '',
+        passwordTips: '',
+      });
+      root.modificationTime = eagleNow();
+    });
+    await sleep(1500); // both Boogies take the root in
+    // The user on machine B files x into it a moment later: B's stamp is the root time + 1, unmarked.
+    await hostB.api.updateItems([x], { addFolders: ['MPARTNERFLDR1'] });
+    await sleep(6000);
+    const statusA = (await s.host.api.getStatus()).partner;
+    expect(statusA?.pending).toBe(1); // still waiting for the partner's Eagle
+    const onA = (await history(s)).find(
+      (h) => h.itemIds.includes(x) && h.actor.kind === 'external',
+    );
+    expect(onA?.actor.name).toBe('Boogie on another computer');
+    // The partner's Eagle, still on its old copy, rates x: A offers its change back.
+    const theirs = { ...original, star: 5, lastModified: eagleNow() };
+    writeFileSync(join(s.libPath, 'images', `${x}.info`, 'metadata.json'), JSON.stringify(theirs));
+    s.rewriteMtimeAsEagle({ [x]: theirs.lastModified });
+    const stale = await entry(s, (h) => !!h.staleOverwrite && h.itemIds.includes(x));
+    await s.host.api.undo(stale.groupId);
+    expect(s.read(x).tags).toContain('fromA');
+  });
+});
 
 describe.skipIf(!sandboxAvailable)('resolving, and undo', () => {
   it('"Keep theirs" works while the library is read-only (it writes nothing there)', async () => {
@@ -597,7 +591,7 @@ describe.skipIf(!sandboxAvailable)('resolving, and undo', () => {
     expect((await s.host.api.getLibraryState())?.starredTags ?? []).not.toContain('cat');
   });
 
-  it('thumbnails: undo and redo of a custom one, and undo of a refresh over it (review6 must-fix 1)', async () => {
+  it('thumbnails: undo and redo of a custom one, and undo of a refresh over it', async () => {
     const s = await shared();
     const a = 'MKG8VYYQTA5SW'; // sample items (real copy and generated fixture alike)
     const thumbOf = (id: string) => {

@@ -1,5 +1,4 @@
-// Write-safety promises of the service on the REAL core, from the round-2 review
-// (.tmp/review2-core/REVIEW.md must-fixes 1 and 4, should-fix 4).
+// Write-safety promises of the service on the REAL core.
 import { cpSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';

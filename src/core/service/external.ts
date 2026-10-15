@@ -164,7 +164,7 @@ function recordRoot(
 /**
  * Log an outside delta: writes over changes of ours judged apart (shared libraries), another
  * Boogie's writes apart from the partner's, and changes that only moved lastModified not at all
- * (a touch changes nothing a person could see or undo; review should-fix 3).
+ * (a touch changes nothing a person could see or undo).
  */
 function logOutside(
   s: Session,
@@ -392,7 +392,7 @@ export function handleItemsHint(
   });
 }
 
-/** The partner's Eagle rewrote mtime.json (FINDINGS 2): our recent raises may need sending again. */
+/** The partner's Eagle rewrote mtime.json: our recent raises may need sending again. */
 export function handleForeignMtime(
   s: Session,
   info: {

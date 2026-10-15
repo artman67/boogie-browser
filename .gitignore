@@ -1,29 +1,9 @@
-research/eagle-app/
-research/sandbox/
 node_modules/
-research/survey/*.jsonl
-research/survey/*.json
 out/
 dist/
 .tmp/
 test-results/
 *.log
-# Eagle's proprietary code excerpts and copies of library art/data stay out of git
-research/format-notes/bundle-toplevel.txt
-research/format-notes/scan/*.pkl
-research/format-notes/scan/*.out.txt
-research/survey/*.jpg
-design/mockups/assets/
-# Private working notes and tests, kept in a separate local repo (.git-private)
-research/
-test/eagle-proof/
-docs/specs/
-design/
-HANDOFF.md
-PLAN.md
+# The maintainer's private notes, research and sample libraries (a separate local repo)
+private/
 CLAUDE.md
-publish.sh
-vitest.proof.config.ts
-test/e2e/FINDINGS.md
-.git-private/
-.private-history.bundle

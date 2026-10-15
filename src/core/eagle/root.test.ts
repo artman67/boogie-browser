@@ -203,7 +203,7 @@ describe('smart folders, quick access, tag groups', () => {
     const rec = r.smartFolders[0];
     expect(Object.keys(rec)).toEqual([
       'id',
-      'icon', // Eagle writes both, "" when unset (eagle-proof D.root.smart)
+      'icon', // Eagle writes both, "" when unset
       'iconColor',
       'name',
       'description',

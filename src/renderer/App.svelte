@@ -1,6 +1,6 @@
 <script lang="ts">
   // App shell: layout regions + startup. Owned by the orchestrator. Each region component is
-  // owned by one UI agent (see PLAN.md). Keep this file thin.
+  // owned by one UI agent. Keep this file thin.
   import { onMount, untrack } from 'svelte';
   import { api, on } from './lib/api';
   import { revealThing } from './lib/reveal';

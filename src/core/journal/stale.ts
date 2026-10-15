@@ -1,4 +1,4 @@
-// The record math behind undoing a stale-overwrite entry (test/eagle-proof FINDINGS 1-3): put back
+// The record math behind undoing a stale-overwrite entry: put back
 // only the parts of our change that the outside write reverted to the old copy, and keep whatever
 // else the partner changed. Whether a write WAS an old copy is decided in service/partner/judge.ts.
 import { asArray, asObject, same, setOrDelete, type Rec } from './util';

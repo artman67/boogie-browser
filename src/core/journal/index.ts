@@ -10,7 +10,7 @@
 // overwrite from that Eagle can be recognised (stale.ts, service/partner), and whether each such
 // entry was resolved: undone ("Put my change back") or kept as the partner's ("Keep theirs").
 //
-// See docs/specs/journal.md. The planning rules (what undo may touch) live in plan.ts,
+// The planning rules (what undo may touch) live in plan.ts,
 // undoItem.ts and undoRoot.ts.
 import Database from 'better-sqlite3';
 import { createHash, randomBytes } from 'node:crypto';
@@ -68,7 +68,7 @@ export interface JournalStore extends Journal {
 
 const MAX_ITEM_IDS = 500;
 const DAY_MS = 24 * 60 * 60 * 1000;
-/** A "seen" pending row is dropped this long after it was marked (review5 should-fix 4). */
+/** A "seen" pending row is dropped this long after it was marked. */
 const SEEN_KEEP_MS = DAY_MS;
 
 const SCHEMA = `
@@ -444,7 +444,7 @@ class JournalImpl implements JournalStore {
   /**
    * Every distinct text this file is known to have had, before and after, ours and outside, in
    * groups recorded at or before `until` (the group's time), newest first: the bases a conflicted
-   * copy is merged against (docs/specs/merge.md). A text recorded again later still counts from
+   * copy is merged against. A text recorded again later still counts from
    * when it first was.
    *
    * What an automatic conflict merge wrote is a version like any other. It has to be: when that

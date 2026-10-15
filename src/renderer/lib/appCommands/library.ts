@@ -35,7 +35,7 @@ export async function newFolder(): Promise<void> {
 export async function emptyTrash(): Promise<void> {
   const n = library.counts?.trash ?? 0;
   if (!n || !canEdit()) return;
-  // A running Eagle on the partner's computer never notices items leaving (live-behavior §4).
+  // A running Eagle on the partner's computer never notices items leaving.
   const lib = library.current;
   const partner = lib?.shared
     ? `\n\n${lib.partnerName ? `${lib.partnerName}’s Eagle` : 'Your partner’s Eagle'} will keep showing them until it restarts.`

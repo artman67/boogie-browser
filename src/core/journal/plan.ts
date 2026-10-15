@@ -198,7 +198,7 @@ function planTagsFile(c: GroupChange, conflicts: Conflict[]): (file: EagleTagsFi
  * saved-filters.json: exactly the old list if nobody changed it since; otherwise entry by entry
  * (an entry is its exact JSON). An edited filter (the same name, removed and added) is put back in
  * its place if it is still as the group left it, else reported, never added again beside the
- * newer one (review5 should-fix 2). The group's new entries come out if still there, its removed
+ * newer one. The group's new entries come out if still there, its removed
  * ones go back at their old place. A pure reorder is undone only if the list is still as it left it.
  */
 function planSavedFilters(

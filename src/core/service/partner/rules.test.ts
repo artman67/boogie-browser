@@ -1,5 +1,5 @@
-// The sync-safety decisions as pure functions, one case per situation the Eagle proof runs
-// (test/eagle-proof FINDINGS.md, -2, -3) and the reviews (.tmp/review4-core, review5-sync) found.
+// The sync-safety decisions as pure functions, one case per situation found by running
+// real Eagle and by reviews.
 import { afterEach, describe, expect, it } from 'vitest';
 import { CLOCK_RULES, PartnerClock } from './clock';
 import {
@@ -29,8 +29,8 @@ const judge = (theirs: Record<string, unknown>, o: Record<string, unknown> = our
 
 describe('an outside write over a change of ours their Eagle may not have shown', () => {
   it('putting (part of) it back is "may have written an old copy", whatever else it did', () => {
-    // An old copy with their rating on top, their Eagle's palettes, a rename of our tag (review5
-    // Q1a), a move out of the folder we filed it in (Q1b), a pure revert (R2-1 C4): all the same
+    // An old copy with their rating on top, their Eagle's palettes, a rename of our tag, a move out
+    // of the folder we filed it in, a pure revert: all the same
     // verdict, since the files can't tell an old copy from their decision. The user decides.
     expect(judge({ ...base, star: 5 })).toBe('stale');
     expect(judge({ ...base, palettes: [{ color: [1, 2, 3] }] })).toBe('stale');
@@ -60,20 +60,20 @@ describe('an outside write over a change of ours their Eagle may not have shown'
 
 describe("who wrote it: another Boogie, or the partner's Eagle", () => {
   const now = 1_790_000_100_000;
-  it("a marked, backdated stamp is a Boogie's; a fresh marked one is an Eagle batch (review5 should-fix 5)", () => {
+  it("a marked, backdated stamp is a Boogie's; a fresh marked one is an Eagle batch", () => {
     expect(writerOf({ lastModified: 1_790_000_000_373 }, now)).toBe('boogie'); // 100 s old
     expect(writerOf({ lastModified: 1_790_000_098_373 }, now)).toBe('partner'); // 1.6 s old
     expect(writerOf({ lastModified: 1_790_000_000_372 }, now)).toBe('partner');
   });
 
-  it("an unmarked stamp exactly one above a value it knew is a Boogie's (review6 must-fix 2)", () => {
+  it("an unmarked stamp exactly one above a value it knew is a Boogie's", () => {
     const prev = 1_790_000_090_111; // the item's lastModified, its mtime.json entry, or a root time
     expect(isBoogieValue(prev + 1, now, [prev])).toBe(true);
     expect(isBoogieValue(prev + 2, now, [prev])).toBe(false); // an Eagle Date.now() lands anywhere
     expect(isBoogieValue(prev + 1, now, [null, undefined])).toBe(false);
   });
 
-  it("their clock behind ours doesn't make their marked saves look old enough (review6 should-fix 9)", () => {
+  it("their clock behind ours doesn't make their marked saves look old enough", () => {
     const t = now - 42_000;
     const theirSave = t - (t % 1000) + 373; // marked, about 42 s "old" on arrival
     expect(isBoogieValue(theirSave, now, [], null)).toBe(true); // clock unknown: taken as a Boogie's
@@ -86,7 +86,7 @@ describe('did their Eagle re-read our version? (seen)', () => {
   const t = 1_790_000_000_000;
   const sent = { at: t, value: t - 60_000 };
 
-  it('only if it ran without a break from before our send until their rewrite (review5 must-fix 2)', () => {
+  it('only if it ran without a break from before our send until their rewrite', () => {
     const working = [t - 30_000, t + MIN, t + 2 * MIN];
     expect(ranThrough(t, t + 3 * MIN, working)).toBe(true);
     // Q2a: their last write was a quit rewrite 1 s before our edit; the next is their cached start.
@@ -95,7 +95,7 @@ describe('did their Eagle re-read our version? (seen)', () => {
     expect(ranThrough(t, t + MIN, [t - 5 * MIN])).toBe(false);
   });
 
-  it('their rewrite holding our value counts only when that value was well in the past (FINDINGS-3 R3-1)', () => {
+  it('their rewrite holding our value counts only when that value was well in the past', () => {
     const signals = [t - 10_000];
     expect(seenByRewrite(sent, sent.value, t + 5_000, signals, null)).toBe(true);
     expect(seenByRewrite(sent, sent.value - 1, t + 5_000, signals, null)).toBe(false); // not ours
@@ -110,18 +110,18 @@ describe('did their Eagle re-read our version? (seen)', () => {
 
 describe("what their Eagle's rewrite of mtime.json from memory did with our raise", () => {
   const known = { value: 5000, created: false, newEntry: false };
-  it('put back or dropped: raise our same value again, no item write (FINDINGS 2, review5 should-fix 3)', () => {
+  it('put back or dropped: raise our same value again, no item write', () => {
     expect(raiseFate(known, 1000)).toBe('reraise');
     expect(raiseFate({ ...known, created: true, newEntry: true }, undefined)).toBe('reraise');
   });
-  it('kept: their poll saw it and re-read the item, nothing to send (R2-5, review4 P13)', () => {
+  it('kept: their poll saw it and re-read the item, nothing to send', () => {
     expect(raiseFate(known, 5000)).toBe('kept');
     expect(raiseFate({ ...known, created: true, newEntry: true }, 5000)).toBe('kept');
   });
   it('kept, but the id had no entry before (maybe adopted without a read): a real touch', () => {
     expect(raiseFate({ ...known, newEntry: true }, 5000)).toBe('bump');
   });
-  it('higher: their newer version is announced, nothing to send (review4 P3)', () => {
+  it('higher: their newer version is announced, nothing to send', () => {
     expect(raiseFate(known, 6000)).toBe('newer');
   });
 });
@@ -147,14 +147,14 @@ describe('whether to re-send an item now', () => {
       'notNeeded',
     );
   });
-  it('never over a file that changed since the index read it (review4 must-fix 2, P4)', () => {
+  it('never over a file that changed since the index read it', () => {
     expect(touchChoice({ ...t, indexMatchesFile: false })).toBe('changedSince');
   });
-  it('waits when mtime.json announces their newer version before its file (review4 must-fix 9, P3)', () => {
+  it('waits when mtime.json announces their newer version before its file', () => {
     expect(touchChoice({ ...t, announced: 3000 })).toBe('newerAnnounced');
     expect(touchChoice({ ...t, announced: 3000, ourRaise: 3000 })).toBe('touch'); // our own value
   });
-  it('stops after 3 in the window: their Eagle keeps reverting it (review4 should-fix 1, P5)', () => {
+  it('stops after 3 in the window: their Eagle keeps reverting it', () => {
     expect(touchChoice({ ...t, urgent: true, recentTouches: 3 })).toBe('capped');
   });
 });
@@ -164,7 +164,7 @@ describe("the partner's clock", () => {
   afterEach(() => Object.assign(CLOCK_RULES, rules));
   const MIN = 60_000;
 
-  it('behind ours: estimated from their save stamps, warned about, their times put on our clock (R2-2)', () => {
+  it('behind ours: estimated from their save stamps, warned about, their times put on our clock', () => {
     const c = new PartnerClock();
     const t0 = 1_790_000_000_000;
     // Their clock is 5 minutes behind; deliveries take 2-9 s.
@@ -189,7 +189,7 @@ describe("the partner's clock", () => {
     expect(c.problem('Sam', t0 + 5 * MIN)).toBeNull();
   });
 
-  it('a morning backlog does not hide their real offset once they work live (review6 c1)', () => {
+  it('a morning backlog does not hide their real offset once they work live', () => {
     const now0 = 1_790_000_000_000;
     const behind = 3 * MIN;
     const c = new PartnerClock();
@@ -200,7 +200,7 @@ describe("the partner's clock", () => {
     expect(c.problem('Sam', t)).toMatch(/3 minutes behind/);
   });
 
-  it('a backlog is not their clock, whether it lands at once or over minutes (review5 should-fix 1, Q4)', () => {
+  it('a backlog is not their clock, whether it lands at once or over minutes', () => {
     const now = 1_790_000_000_000;
     const burst = new PartnerClock();
     for (let i = 0; i < 10; i++) burst.add(now - 3 * 60 * MIN + i * MIN, now + i * 50);

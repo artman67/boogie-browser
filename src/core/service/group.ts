@@ -40,7 +40,7 @@ export function ensureWritable(s: Session): void {
   if (s.readOnly) throw new Error(s.readOnlyReason ?? 'This library is read-only.');
 }
 
-/** Folder and tag-group edits can't reach a running Eagle in a shared library (research/live-behavior). */
+/** Folder and tag-group edits can't reach a running Eagle in a shared library. */
 export function sharedWarning(s: Session): string | undefined {
   if (!s.shared) return undefined;
   const who = s.partnerName ? `${s.partnerName}'s` : "your partner's";
@@ -192,8 +192,8 @@ export async function editItems(
 }
 
 /**
- * How long a write to a shared library's root files waits for Dropbox (docs/specs/merge.md
- * section 4), and how long it stops waiting after a wait ran out.
+ * How long a write to a shared library's root files waits for Dropbox, and how
+ * long it stops waiting after a wait ran out.
  */
 export const SETTLE = { maxMs: 20_000, pollMs: 500, restMs: 5 * 60_000 };
 

@@ -329,7 +329,7 @@
   cursor: default;
 }
 
-/* Segmented control (like the inspector tabs in the mockup) */
+/* Segmented control */
 .dg-seg {
   display: flex;
   gap: 2px;

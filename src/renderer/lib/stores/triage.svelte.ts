@@ -1,4 +1,4 @@
-// Triage mode (mockup #4): one item at a time, keys to file, tag, rate, trash or skip it.
+// Triage mode: one item at a time, keys to file, tag, rate, trash or skip it.
 // `triage.open(scope?)` starts a session on a snapshot of the view you are looking at (or of
 // another scope); `triage.close()` puts you back where you were. The keys and the screen live in
 // components/triage; this is the state they share.

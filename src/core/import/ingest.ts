@@ -182,7 +182,7 @@ export class Pipeline {
     if (job.star) init.star = job.star;
     const extra: Record<string, unknown> = {};
     if (noPreview) {
-      init.noPreview = true; // icon only: no dimensions, no palette (format-spec 6)
+      init.noPreview = true; // icon only: no dimensions, no palette
     } else if (text !== null) {
       extra.text = text;
     } else {

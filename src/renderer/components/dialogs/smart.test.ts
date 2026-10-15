@@ -1,5 +1,5 @@
 // The smart folder editor's model: rules it writes must be what Eagle writes, and rules made in
-// Eagle must come back out unharmed. See research/format-notes/smartfolders-filters.md.
+// Eagle must come back out unharmed.
 import { describe, expect, it } from 'vitest';
 import type { SmartCondition } from '../../../shared/types';
 import {

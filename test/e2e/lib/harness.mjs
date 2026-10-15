@@ -32,7 +32,7 @@ export const WORK = work;
 export const OUT = join(WORK, 'out');
 export const LIBS = join(WORK, 'libs');
 export const SHOTS = join(WORK, 'shots');
-const TEMPLATES = join(ROOT, 'research/sandbox/templates');
+const TEMPLATES = join(ROOT, 'private/research/sandbox/templates');
 const ELECTRON = join(ROOT, 'node_modules/electron/dist/electron');
 
 export const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

@@ -1,4 +1,4 @@
-// Manual order inside a folder (format-spec 9). Each item stores `order[folderId]` as a decimal
+// Manual order inside a folder. Each item stores `order[folderId]` as a decimal
 // string. Eagle sorts by comparing those STRINGS (JS `<`), and a folder in MANUAL mode shows the
 // biggest first. Values are timestamp-sized numbers with up to ~20 fractional digits, so all the
 // arithmetic here is exact (BigInt, scaled by 10^20) and never goes through a float.

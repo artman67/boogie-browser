@@ -1,5 +1,4 @@
-// Boogie's timestamps against Eagle's own rules (research/eagle-app/app/js/background.js, read for
-// behavior only): its watch callback skips an item edit whose mtime.json value is less than 500 ms
+// Boogie's timestamps against Eagle's own rules: its watch callback skips an item edit whose mtime.json value is less than 500 ms
 // behind its clock, and its UI unfiles an item whose only folder it doesn't know when the item is
 // older than the library's modificationTime.
 import { describe, expect, it } from 'vitest';
@@ -8,7 +7,7 @@ import { SKEW_MARGIN_MS, isBoogieStamp, itemStamp, markStamp, rootStamp } from '
 /** Does a running Eagle skip our edit as its own? (`eagleNow`: its clock when its poll runs.) */
 const eagleSkips = (value: number, eagleNow: number) => eagleNow - value < 500;
 
-describe('item stamps and a partner Eagle with a different clock (FINDINGS-2 R2-2)', () => {
+describe('item stamps and a partner Eagle with a different clock', () => {
   const now = 1_790_000_000_000;
   const delivery = 3_000; // Dropbox plus their 4 s poll
 
@@ -31,7 +30,7 @@ describe('item stamps and a partner Eagle with a different clock (FINDINGS-2 R2-
     expect(itemStamp(now, 0, 0, now + 2 * 86_400_000)).toBe(markStamp(now - SKEW_MARGIN_MS)); // broken clock
   });
 
-  it('quick writes never climb into the future (FINDINGS-3 R3-1, review5 Q7)', () => {
+  it('quick writes never climb into the future', () => {
     // 100 root writes in 30 s, then an item filed into the last folder.
     let root = now - 3_600_000;
     for (let i = 0; i < 100; i++) root = rootStamp(now + i * 300, root);

@@ -1,4 +1,4 @@
-// Tolerant readers (format-spec 19.7). Reading never repairs anything and never writes.
+// Tolerant readers. Reading never repairs anything and never writes.
 import { isUtf8 } from 'node:buffer';
 import { readdir, readFile, stat } from 'node:fs/promises';
 import { join } from 'node:path';

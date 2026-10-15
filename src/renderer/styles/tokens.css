@@ -1,4 +1,4 @@
-/* Design tokens from mockup #2 "Eagle, plus" (design/mockups/index.html, section .m2).
+/* Design tokens: Eagle's look, plus.
    Owned by the orchestrator. Components use these variables, never raw colors. */
 :root {
   --bg: #1d1e21; /* main background (grid) */

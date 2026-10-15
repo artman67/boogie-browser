@@ -13,7 +13,7 @@ const names: Record<string, string> = { F1: 'Hands', F2: 'Feet' };
 const folderName = (id: string) => names[id];
 
 /**
- * What Eagle's filter bar saves (angular.copy of its filterRules, see smartfolders-filters.md):
+ * What Eagle's filter bar saves (angular.copy of its filterRules):
  * every section present, folder values are whole folder objects, undefined keys dropped by JSON.
  */
 function eagleSaved(patch: Record<string, unknown>): Record<string, unknown> {
@@ -58,7 +58,7 @@ describe("Eagle's saved filter -> Boogie filter", () => {
       annotation: { has: true, no: false },
     });
     const { filter, unsupported } = eagleRuleToFilter(rule, NOW);
-    // Eagle's filter bar ORs included and excluded tags (eagle-proof FINDINGS-2 R2-3).
+    // Eagle's filter bar ORs included and excluded tags.
     expect(unsupported).toEqual([
       'Tags: Eagle shows items with an included tag OR without the excluded ones',
     ]);

@@ -1,5 +1,5 @@
 // Eagle API v1 (`/api/...`) plus the "copy link" pages, on port 41595. Argument names and reply
-// shapes follow Eagle's (research/format-notes/api-and-plugins.md §2). Deliberately NOT here:
+// shapes follow Eagle's. Deliberately NOT here:
 // /api/script/inject (runs arbitrary JS), /api/check (fetches and injects remote script) and
 // /api/folder/unlock (we never hand out or accept folder passwords).
 import { readFile, stat } from 'node:fs/promises';

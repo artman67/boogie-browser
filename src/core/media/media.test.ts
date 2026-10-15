@@ -98,8 +98,8 @@ describe('probe', () => {
   });
 
   it('reads the size of a big PSD from its header (never decoding it) and a PDF page in truncated points', async () => {
-    const psd = resolve('research/sandbox/media/test-psd.psd');
-    const pdf = resolve('research/sandbox/media/test-pdf.pdf');
+    const psd = resolve('private/research/sandbox/media/test-psd.psd');
+    const pdf = resolve('private/research/sandbox/media/test-pdf.pdf');
     if (existsSync(psd))
       expect(await media.probe(psd)).toMatchObject({ ext: 'psd', width: 599, height: 600 });
     if (existsSync(pdf))
@@ -196,7 +196,7 @@ describe('preview', () => {
   });
 
   it('a PDF previews as page 1 at the long-edge cap', async () => {
-    const pdf = resolve('research/sandbox/media/test-pdf.pdf');
+    const pdf = resolve('private/research/sandbox/media/test-pdf.pdf');
     if (!existsSync(pdf)) return;
     const out = await media.preview(pdf, `pdf-${Date.now()}`, 1200);
     expect(bytesDims(readFileSync(out))[1]).toBe(1200);

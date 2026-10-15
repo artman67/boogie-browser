@@ -63,7 +63,7 @@ const exe = opt('--exe', null) && resolve(root, opt('--exe', null)); // a packag
 const work = resolve(root, opt('--work', '.tmp/app'));
 const home = join(work, 'home');
 const exportDir = join(work, 'export-out');
-const privateSample = join(root, 'research/sandbox/templates/sample.library');
+const privateSample = join(root, 'private/research/sandbox/templates/sample.library');
 const library = resolve(
   root,
   process.env.SMOKE_LIBRARY ??

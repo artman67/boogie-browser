@@ -1,6 +1,6 @@
 // Dropbox "conflicted copy" detection. Eagle ignores these files (and Boogie must never index them
 // as items), but they mean two people changed the same file before Dropbox synced, so the user should
-// hear about them. See research/format-spec.md §13.6 and research/live-behavior.md §2.7.
+// hear about them.
 import { readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { ConflictFile } from '../../shared/types';

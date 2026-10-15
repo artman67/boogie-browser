@@ -1,6 +1,5 @@
 // The smart folder rule model: which properties exist, which methods each allows, the defaults
 // Eagle's editor uses, and the checks that stop a rule from silently matching nothing.
-// Source of truth: research/format-notes/smartfolders-filters.md ("Property reference").
 // A rule made in Eagle that this editor doesn't fully understand (a property it has no control
 // for, a method it doesn't offer, a value it would flag) is kept exactly as it was and shown as
 // such, never refused: the partner's smart folders must survive being renamed here.

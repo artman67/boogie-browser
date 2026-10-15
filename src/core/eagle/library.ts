@@ -78,7 +78,7 @@ const BATCH_CONCURRENCY = 8;
  * Thumbnails replaced are kept in the journal so undo (and redo) can put them back. A picture
  * bigger than this isn't kept; a refresh of many items keeps pictures until this much per action,
  * then only records that the rest weren't kept, so undo says so instead of claiming success
- * (review5 should-fix 8, review6 must-fix 1: a refresh can replace a custom picture).
+ * (a refresh can replace a custom picture).
  */
 const THUMB_JOURNAL_MAX_BYTES = 8 * 1024 * 1024;
 const THUMB_JOURNAL_BUDGET = 64 * 1024 * 1024;
@@ -355,8 +355,8 @@ class EagleLibraryImpl implements EagleAdapter {
   }
 
   /**
-   * Rewrite an item with no field change, so a partner's Eagle that kept an old copy re-reads it
-   * (eagle-proof findings 1 and 2). Its lastModified, and so its mtime.json value, go above both
+   * Rewrite an item with no field change, so a partner's Eagle that kept an old copy re-reads it.
+   * Its lastModified, and so its mtime.json value, go above both
    * the file's and mtime.json's current values: Eagle re-reads an item only when that value goes
    * up. The value is backdated like every item stamp, so an Eagle whose clock is behind ours
    * doesn't skip it as its own write (stamp.ts). Not journaled: no field a user could undo changed.
@@ -747,7 +747,7 @@ class EagleLibraryImpl implements EagleAdapter {
     await mkdirGuarded(imagesDir(this.root), { recursive: true });
 
     // Back with a fresh stamp of ours (above its old value), so Eagle and another Boogie see a
-    // Boogie write rather than an old one of the partner's (review5 should-fix 7).
+    // Boogie write rather than an old one of the partner's.
     let text: string | null = null;
     let restamped: string | null = null;
     let lastModified = Date.now();

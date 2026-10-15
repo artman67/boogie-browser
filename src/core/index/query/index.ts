@@ -1,5 +1,4 @@
 // Scopes, filters, keyword grammar, sorts, smart folders and color search over the SQLite index.
-// See docs/specs/query.md.
 import type { QueryEngineFactory } from '../../contracts';
 import { SqlQueryEngine } from './engine';
 

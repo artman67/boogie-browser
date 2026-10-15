@@ -1,4 +1,4 @@
-// Eagle's exact edit semantics as pure functions on a raw item record (format-spec 14, 19.3).
+// Eagle's exact edit semantics as pure functions on a raw item record.
 // The service calls these inside `updateItem(id, (rec) => ..., ctx)`. Each returns true if it
 // changed the record. They never delete a key except where Eagle does: `star` on unrate and
 // `deletedTime` on a single restore. New keys are appended (key order = insertion order).

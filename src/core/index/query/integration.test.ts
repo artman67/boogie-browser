@@ -1,5 +1,5 @@
 // The engine against the REAL index module (openIndex + sync) on a real library: a read-only
-// reflinked copy of the Art Archive in research/sandbox/templates (5.4k items). Nothing is written
+// reflinked copy of the Art Archive in private/research/sandbox/templates (5.4k items). Nothing is written
 // to the library; the sqlite index goes to .tmp/query/. Every answer is checked against a plain JS
 // brute force over the parsed records, so a mismatch between the index's rows and what the engine
 // assumes shows up here.
@@ -22,7 +22,7 @@ import { urls } from './testUtil';
 
 const TEMPLATE = resolve(
   import.meta.dirname,
-  '../../../../research/sandbox/templates/art-archive.library',
+  '../../../../private/research/sandbox/templates/art-archive.library',
 );
 const SCRATCH = resolve(import.meta.dirname, '../../../../.tmp/query/integration');
 

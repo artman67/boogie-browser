@@ -1,7 +1,7 @@
 // The partner's Eagle (on another computer), as far as the shared files let us see it.
 //
-// Two Eagle bugs mean a change of ours can reach their library and still not reach their screen
-// (test/eagle-proof FINDINGS 1 and 2): a cached start keeps showing its old copy of an item even
+// Two Eagle bugs mean a change of ours can reach their library and still not reach their screen:
+// a cached start keeps showing its old copy of an item even
 // though mtime.json says it changed, and a running Eagle rewrites mtime.json from memory ~3 s
 // after its own saves, which can undo our raise. Either way their next save of that item writes the
 // old copy back over ours. The cure for both is to re-send the item while their Eagle is running.
@@ -22,14 +22,14 @@
 // - RE-SENDS. While they are active, pending items that weren't sent while they were running get
 //   touched (rewritten with a higher lastModified), at most TOUCH_PER_MIN a minute. After a rewrite
 //   of theirs from memory, our raises it put back or dropped are raised again first (just
-//   mtime.json: their memory holds an older value, so that is enough); ones it kept are left alone
-//   (FINDINGS-2 R2-5). One item is re-sent at most 3 times in 10 minutes: an Eagle that keeps
+//   mtime.json: their memory holds an older value, so that is enough); ones it kept are left alone.
+//   One item is re-sent at most 3 times in 10 minutes: an Eagle that keeps
 //   putting it back isn't re-reading it, so it gets a warning instead of a write per save of
 //   theirs. A re-send first reads the batch again and logs anything that changed (never re-send an
 //   outside write as ours), and skips an item whose mtime.json already announces a newer version
 //   that hasn't arrived.
 // - RE-CHECKS. Items we wrote are read again a few seconds later and after a minute, so a save of
-//   theirs that raced ours without raising mtime.json is seen (FINDINGS 3).
+//   theirs that raced ours without raising mtime.json is seen.
 import type { AppStatus, EagleItemRecord } from '../../../shared/types';
 import { ItemNotFoundError, isSkippableItemError } from '../../eagle';
 import { pathExists } from '../../libraries/fsutil';
@@ -140,7 +140,7 @@ export class Partner {
    * Did another Boogie (the user's other computer) write `stamp`? Marked and backdated, or exactly
    * one more than a value it knew: the item's previous lastModified or mtime.json value (`prev`),
    * the mtime.json entry a rewrite of someone's replaced, or a recent root time (judge.ts
-   * isBoogieValue, review6 must-fix 2).
+   * isBoogieValue).
    */
   byOtherBoogie(stamp: unknown, id: string | null, ...prev: unknown[]): boolean {
     const known: number[] = [...this.roots];
@@ -413,7 +413,7 @@ export class Partner {
     const s = this.s;
     if (s.closed || s.readOnly || !batch.length) return;
     // Read them again first, so an outside write waiting there is logged and judged, never
-    // re-sent as ours (review4 must-fix 2). A running index sync re-reads them afterwards anyway.
+    // re-sent as ours. A running index sync re-reads them afterwards anyway.
     if (!s.syncPromise) await this.io.refreshAndLog(batch.map((b) => b.id));
     const file = await s.lib.readMtimeIndex().catch(() => ({}) as Record<string, number>);
     const now = Date.now();

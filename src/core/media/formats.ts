@@ -1,12 +1,11 @@
 // Ext tables: what kind of file an ext is, which ones Chromium can show, which ones get
-// bigger thumbnails. Sources: research/format-notes/thumbs-palette-import.md 1.2 and 4.2,
-// research/tech-notes.md section 3.
+// bigger thumbnails.
 
 import type { ProbeResult } from '../contracts';
 
 export type MediaKind = ProbeResult['kind'];
 
-/** Eagle's fixed sizes for types with no pixels of their own (thumbs-palette-import 1.5). */
+/** Eagle's fixed sizes for types with no pixels of their own. */
 export const AUDIO_SIZE = { width: 280, height: 140 };
 export const FONT_SIZE = { width: 600, height: 600 };
 
@@ -51,7 +50,7 @@ export function isBrowserViewable(ext: string): boolean {
   return VIEWABLE.has(ext.replace(/^\./, '').toLowerCase());
 }
 
-/** Eagle's thumbnail size S (thumbs-palette-import 1.2): 320 unless the type is listed here. */
+/** Eagle's thumbnail size S: 320 unless the type is listed here. */
 const S480 = set(
   `pdf 3mf 3ds dae ifc ply stl fbx obj glb xmind mindnode xd ai indd indt idml af afpub afphoto afdesign sketch graffle
    fig eps hdr exr dds doc docx xls xlsx ppt pptx potx key numbers pages cr3`,
@@ -59,8 +58,8 @@ const S480 = set(
 const S512 = set('ico icns');
 
 /**
- * What Windows Eagle can draw a thumbnail for (its SUPPORT_FORMATS_WIN, thumbs-palette-import
- * 1.2). Anything else is an icon-only (`noPreview`) item on the partner's side, and a "regenerate
+ * What Windows Eagle can draw a thumbnail for (its SUPPORT_FORMATS_WIN).
+ * Anything else is an icon-only (`noPreview`) item on the partner's side, and a "regenerate
  * thumbnail" there strips the thumbnail, size and palette of any item we had drawn one for. So we
  * do what Eagle does: no thumbnail for these either, even where vips could make one (kra, ai,
  * eps, woff2, keynote...). Our viewer still shows them through `preview()`.

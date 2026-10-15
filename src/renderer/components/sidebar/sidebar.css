@@ -1,4 +1,4 @@
-/* Sidebar look (mockup .m2 .side). Global on purpose: every sidebar component shares the same
+/* Sidebar look. Global on purpose: every sidebar component shares the same
    row, section and count styles, all under .sb so nothing leaks. */
 .sb {
   display: flex;

@@ -1,7 +1,7 @@
 // LibraryWatcher: notices changes that arrive from outside (the partner's Eagle via Dropbox, a
 // Wine Eagle on this machine) and tells the service which items to re-read.
 //
-// Why it looks the way it does (research/tech-notes.md §4, format-spec.md §13):
+// Why it looks the way it does:
 // - Never recursive. An item is a folder, so watching recursively would cost one inotify watch
 //   per item (85k) on top of the ones Dropbox already holds. We watch the library root and
 //   `images/` non-recursively and let `mtime.json` tell us which existing items changed.
@@ -14,12 +14,12 @@
 //   is an older copy) is watched for a while, and reported again when its file arrives.
 // - Our own writes echo back through the same channels; `lib.recentSelfWrites()` lets us skip them.
 // - A partner's Eagle rewrites mtime.json from memory about 3 s after each of its saves, which can
-//   swallow or revert one of our raises (test/eagle-proof FINDINGS 2). Such a "foreign" rewrite is
+//   swallow or revert one of our raises. Such a "foreign" rewrite is
 //   reported with the ids we raised lately, so the service can judge which need raising again. It
 //   also tells us that Eagle is running. A Boogie on another computer (raising only its own
 //   marked, backdated values, eagle/stamp.ts) is not that, though it may still undo a raise. Eagle's `backup/backup-*.json` files are no signal:
 //   one comes with each of those rewrites anyway, they keep the root's time, and Boogie writes
-//   them too (eagle-proof FINDINGS-2 R2-4).
+//   them too.
 // - A value that goes DOWN is a rewrite from someone's memory, or a save by a partner whose clock
 //   is behind ours: either way that item is read again.
 //
