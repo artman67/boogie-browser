@@ -230,7 +230,7 @@ export class CoreService {
     const s = entry ? this.sessionById(entry.id) : null;
     if (entry && s) {
       // No longer shared: nothing waits for a partner's Eagle, and months-old bases must not be
-      // used if it is shared again later (review should-fix 5).
+      // used if it is shared again later.
       if (s.shared && !entry.shared) s.partner?.unshared();
       s.shared = entry.shared;
       s.partnerName = entry.partnerName;

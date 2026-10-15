@@ -158,7 +158,7 @@ describe('libraries in Dropbox and on drives', () => {
     execFileSync('cp', [
       '-a',
       '--reflink=auto',
-      join(ROOT, 'research/sandbox/templates/sample.library'),
+      join(ROOT, 'private/research/sandbox/templates/sample.library'),
       lib,
     ]);
     // Allowed as an editable place, but no environment root covers it (the last test takes it out).

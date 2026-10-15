@@ -3,7 +3,7 @@
 // 1. Backdated. A partner's running Eagle skips an item edit whose mtime.json value is less than
 //    500 ms behind ITS clock ("prevent triggering itself", background.js watch callback, `edit`
 //    branch). A plain `Date.now()` from a machine whose clock runs ahead of the partner's by more than the
-//    delivery delay is skipped every time (eagle-proof FINDINGS-2 R2-2). So values start a minute in
+//    delivery delay is skipped every time. So values start a minute in
 //    the past. Why 60 s: clocks synced by NTP or Windows Time are normally within a second or two,
 //    and a week of drift on poor hardware stays well under a minute, while a minute changes nothing
 //    anyone sees (Eagle shows and sorts by the files' own dates and `modificationTime`; it compares
@@ -25,8 +25,8 @@
 //    without adding any key to Eagle's records (service/partner/judge.ts writerOf). Rounding up to
 //    the mark adds up to 999 ms, so when the value is already close to now (quick writes of one
 //    file pushing `prev + 1`, a root written moments ago) it is written unmarked instead: marking
-//    those compounded, walked the root seconds into the future, and Eagle skipped the edit
-//    (eagle-proof FINDINGS-3 R3-1). Such a write just isn't recognizable as Boogie's.
+//    those compounded, walked the root seconds into the future, and Eagle skipped the edit.
+//    Such a write just isn't recognizable as Boogie's.
 
 /** How far Boogie's timestamps are set back (see above). */
 export const SKEW_MARGIN_MS = 60_000;
@@ -58,7 +58,7 @@ export const BOOGIE_MIN_AGE_MS = 30_000;
 /**
  * Was this written by a Boogie (on another computer)? Marked AND at least 30 s old when it
  * arrives. Eagle stamps a save with its Date.now(), which carries the mark one time in a
- * thousand (often a whole batch at once), but then arrives fresh (review5 should-fix 5).
+ * thousand (often a whole batch at once), but then arrives fresh.
  */
 export function isBoogieWrite(v: unknown, arrivedAt: number): boolean {
   return isBoogieStamp(v) && arrivedAt - (v as number) >= BOOGIE_MIN_AGE_MS;

@@ -54,7 +54,7 @@ function targets(list: HistoryEntry[]): Map<string, HistoryEntry> {
  * What Ctrl+Z reverses: your newest action that is still applied. That is a normal action, or a
  * redo (which re-applied something). Plain undos are markers, not actions: skipped, so a second
  * Ctrl+Z goes further back. If that newest action can't be undone, it is returned anyway (the
- * caller says so) rather than silently undoing an older one behind it (review should-fix 15).
+ * caller says so) rather than silently undoing an older one behind it.
  */
 export function findUndoable(list: HistoryEntry[], actor: Actor): HistoryEntry | null {
   const target = targets(list);
@@ -91,7 +91,7 @@ export function undo(s: Session, actor: Actor, groupId?: string): Promise<UndoRe
   return inOrder(s, actor, () =>
     s.lock.exclusive(async () => {
       if (groupId) {
-        // By id: an entry older than the newest few hundred is still found (review6).
+        // By id: an entry older than the newest few hundred is still found.
         const known = s.journal.getEntry(groupId);
         if (known?.undoneBy) throw new Error('That change was already undone.');
         if (known && !known.undoable) throw new Error("That change can't be undone.");

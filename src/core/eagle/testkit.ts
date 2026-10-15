@@ -10,9 +10,9 @@ export const TMP = resolve('.tmp/eagle');
 /** The real library copies when they are here, else the generated ones committed with the tests. */
 export const USING_FIXTURES =
   !!process.env.BOOGIE_TEST_FIXTURES ||
-  !existsSync(resolve('research/sandbox/templates/sample.library'));
+  !existsSync(resolve('private/research/sandbox/templates/sample.library'));
 export const TEMPLATES = !USING_FIXTURES
-  ? resolve('research/sandbox/templates')
+  ? resolve('private/research/sandbox/templates')
   : resolve('test/fixtures/libraries');
 
 export interface FileChange {
@@ -66,9 +66,7 @@ export async function scratch(): Promise<string> {
 }
 
 /** Copy a template library (reflinked, so cheap) into a fresh scratch folder and return its path. */
-export async function copyTemplate(
-  name: 'sample' | 'art-archive' = 'sample',
-): Promise<string> {
+export async function copyTemplate(name: 'sample' | 'art-archive' = 'sample'): Promise<string> {
   const dir = await scratch();
   const dest = join(dir, 'lib.library');
   await cp(join(TEMPLATES, `${name}.library`), dest, {

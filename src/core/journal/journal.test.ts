@@ -587,7 +587,7 @@ describe('undo of tags.json, saved-filters.json and thumbnails', () => {
     ]);
   });
 
-  it('undoing a filter edit after the partner edited it again reports it, never adds the old one beside theirs (review5 Q5)', async () => {
+  it('undoing a filter edit after the partner edited it again reports it, never adds the old one beside theirs', async () => {
     const A = { name: 'Refs', rule: { tags: ['ref'] } };
     const X = { name: 'Hands', rule: { tags: ['hand'] } };
     const X1 = { name: 'Hands', rule: { tags: ['hand', 'arm'] } }; // yours

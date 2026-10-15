@@ -1,4 +1,4 @@
-// SQLite index for one library. See docs/specs/index.md.
+// SQLite index for one library.
 import type { IndexFactory } from '../contracts';
 import { openIndex } from './open';
 

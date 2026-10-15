@@ -1,5 +1,5 @@
 // Merging a Dropbox conflicted copy into the library's file, and deciding which copies are only
-// noise (docs/specs/merge.md). Pure functions: no fs, no electron.
+// noise. Pure functions: no fs, no electron.
 export { basesUntil, pickBases, SLACK_MS } from './bases';
 export { judge } from './judge';
 export { mergeItem, type ItemContext } from './item';

@@ -66,7 +66,7 @@ class ImporterImpl implements Importer {
     const extra = await this.target({ folderIds: opts.folderIds });
     const base = await this.target({ folderId: opts.folderId });
     // New folders go into the root BEFORE any item, so every item is newer than the root change
-    // and the partner's Eagle doesn't "repair" items back to unfiled (format-spec 19.4 #18).
+    // and the partner's Eagle doesn't "repair" items back to unfiled.
     await this.prepareFolders(plan.roots, opts, ctx);
 
     const total = plan.files.length;

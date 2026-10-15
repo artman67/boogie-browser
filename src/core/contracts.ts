@@ -53,7 +53,7 @@ export interface EagleLibrary {
   readonly root: string; // absolute path to <name>.library
   readonly readOnly: boolean;
 
-  // ── Reads (tolerant, never repair; see format-spec §19.7) ──
+  // ── Reads (tolerant, never repair) ──
   readRoot(): Promise<Doc<EagleRootRecord>>;
   /** Item ids from `images/` (only `<id>.info` dirs with a 13- or 36-char id). */
   listItemIds(): Promise<string[]>;
@@ -156,7 +156,7 @@ export interface EagleLibrary {
 /**
  * `<library>/tags.json`. `historyTags` = recently used, newest first, at most 120 (Eagle adds a
  * tag whenever it is put on an item); `starredTags` = the starred list. Unknown keys are kept.
- * A running Eagle never re-reads this file and rewrites it from memory (live-behavior §2.5).
+ * A running Eagle never re-reads this file and rewrites it from memory.
  */
 export interface EagleTagsFile {
   historyTags: string[];
@@ -165,8 +165,8 @@ export interface EagleTagsFile {
 }
 
 /**
- * One entry of `<library>/saved-filters.json`: a name and a snapshot of Eagle's filter bar
- * (format-notes/smartfolders-filters.md "saved-filters.json"). Eagle polls this file every 4 s.
+ * One entry of `<library>/saved-filters.json`: a name and a snapshot of Eagle's filter bar.
+ * Eagle polls this file every 4 s.
  */
 export interface EagleSavedFilter {
   name: string;
@@ -289,7 +289,7 @@ export interface Journal extends JournalSink {
   getEntry(groupId: string): HistoryEntry | null;
   /** Every distinct text this file is known to have had (before and after, ours and outside),
    *  recorded at or before `until` (ms), newest first, at most `limit` (default 50). The bases a
-   *  conflicted copy is merged against (docs/specs/merge.md). */
+   *  conflicted copy is merged against. */
   versionsOf?(
     libraryId: string,
     relPath: string,
@@ -460,7 +460,7 @@ export interface EagleThumbResult {
 
 export interface MediaService {
   probe(path: string): Promise<ProbeResult>;
-  /** Eagle-rule thumbnail (format-spec §6): WebP q75, short edge 320 (480 some types). */
+  /** Eagle-rule thumbnail: WebP q75, short edge 320 (480 some types). */
   eagleThumbnail(
     srcPath: string,
     probe: ProbeResult,
@@ -469,7 +469,7 @@ export interface MediaService {
   ): Promise<EagleThumbResult>;
   /** One video frame as WebP bytes at native size (custom thumbnails). */
   videoFrame?(srcPath: string, atSec: number): Promise<Uint8Array>;
-  /** Eagle palette (format-spec §7) from the thumbnail (or the original when noThumbnail). */
+  /** Eagle palette from the thumbnail (or the original when noThumbnail). */
   /** `dims`: the image's upright size when the caller already knows it (saves a header read). */
   palette(imagePath: string, dims?: { width: number; height: number }): Promise<Palette[] | null>;
   /** Browser-viewable large rendition for formats Chromium can't show (HEIC, PSD, TIFF, RAW...). Cached. */

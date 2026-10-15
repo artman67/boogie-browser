@@ -676,7 +676,7 @@ describe('touching an item so a partner Eagle re-reads it', () => {
     await lib.flushMtime();
     expect(lib.recentRaises(20_000)).toEqual([A]);
     // The partner's Eagle rewrites mtime.json from memory ~3 s after its own save, putting A back
-    // to the value it knew (eagle-proof finding 2).
+    // to the value it knew.
     await writeText(join(path, 'mtime.json'), JSON.stringify({ [A]: 1_000, all: 3 }));
     const before = await readJson(metaPath(path, A));
     const t = await lib.touchItem(A);
@@ -925,7 +925,7 @@ describe('createItem', () => {
         palettes: [{ color: [1, 2, 3], ratio: 100 }],
       }),
     ).toEqual(['removeThumbnail', 'noThumbnail', 'height', 'width', 'lastModified', 'palettes']);
-    // Eagle's own webp import (eagle-proof d-bytes.md "Import webp"): noThumbnail, width, height.
+    // Eagle's own webp import: noThumbnail, width, height.
     expect(keysOf('webp', { width: 900, height: 560, noThumbnail: true })).toEqual([
       'noThumbnail',
       'width',

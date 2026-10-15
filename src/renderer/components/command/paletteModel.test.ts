@@ -43,7 +43,7 @@ describe('buildPalette', () => {
     ],
   };
 
-  it('puts Search first, then tags, folders and commands, like the mockup', () => {
+  it('puts Search first, then tags, folders and commands', () => {
     expect(titles(typed)).toEqual(['Search', 'Tags', 'Folders']);
     expect(labels(typed, 'Search')).toEqual(['Search for “fle”']);
     expect(labels(typed, 'Tags')).toEqual([

@@ -1,5 +1,5 @@
 // Builds the small test libraries in test/fixtures/libraries/ that the core tests use when the
-// (gitignored, private) research/sandbox/templates are missing. Made with Boogie's own
+// (gitignored, private) private/research/sandbox/templates are missing. Made with Boogie's own
 // createLibrary and import of plain generated pictures: no real artwork, safe to publish.
 // The three "sample" items keep the ids the tests know (and the sync tests' mtime.json ids).
 //

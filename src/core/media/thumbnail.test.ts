@@ -175,7 +175,7 @@ describe('eagleThumbnail', () => {
   it('an undecodable image fails softly: no bytes, not noThumbnail', async () => {
     const file = makeImage('t-corrupt.png', 1500, 1500, { noise: true });
     const p = await media.probe(file);
-    // Same probe, but the file is now all zeros (like the zero-filled files in the survey).
+    // Same probe, but the file is now all zeros.
     mkdirSync(CACHE_DIR, { recursive: true });
     const broken = join(CACHE_DIR, 'broken.png');
     writeFileSync(broken, Buffer.alloc(200_000));
@@ -186,7 +186,7 @@ describe('eagleThumbnail', () => {
 
 // Ground truth: what real Eagle 4 wrote for the same originals (read-only).
 const LIBS = ['sample.library', 'art-archive.library']
-  .map((n) => resolve('research/sandbox/templates', n, 'images'))
+  .map((n) => resolve('private/research/sandbox/templates', n, 'images'))
   .filter(existsSync);
 
 describe.skipIf(LIBS.length === 0)('against thumbnails Eagle 4 made', () => {
@@ -230,7 +230,9 @@ describe.skipIf(LIBS.length === 0)('against thumbnails Eagle 4 made', () => {
   });
 
   it("a 1177x1452 jpg (sample) gets Eagle's 320x394 thumbnail", async () => {
-    const dir = resolve('research/sandbox/templates/sample.library/images/LT24XY3DPJFLK.info');
+    const dir = resolve(
+      'private/research/sandbox/templates/sample.library/images/LT24XY3DPJFLK.info',
+    );
     if (!existsSync(dir)) return;
     const original = join(dir, '0051.jpg');
     const t = await media.eagleThumbnail(original, await media.probe(original));

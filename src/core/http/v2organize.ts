@@ -1,5 +1,4 @@
-// Eagle API v2 routes for tags, tag groups and smart folders (research/format-notes/
-// api-and-plugins.md §3.2). Writes are attributed to the caller like every other API write.
+// Eagle API v2 routes for tags, tag groups and smart folders. Writes are attributed to the caller like every other API write.
 // Tag groups live in the library's root metadata.json, which a running partner Eagle never
 // re-reads and may overwrite; Eagle's API has no way to say so, so the reply stays Eagle's shape.
 import type { SmartFolderNode, TagGroup } from '../../shared/types';

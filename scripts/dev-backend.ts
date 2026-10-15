@@ -20,7 +20,7 @@ import type { CoreHost } from '../src/core/contracts';
 import type { BoogieEventName } from '../src/shared/api';
 
 const ROOT = resolve(import.meta.dirname, '..');
-const TEMPLATES = join(ROOT, 'research/sandbox/templates');
+const TEMPLATES = join(ROOT, 'private/research/sandbox/templates');
 const FIXTURES = join(ROOT, 'test/fixtures/libraries');
 
 /** Every core event, forwarded to the page. The check fails the build if the contract gains one. */

@@ -2,7 +2,7 @@
 // Owned by the orchestrator. Agents may ADD optional fields; never rename or remove.
 
 // ───────────────────────── Eagle on-disk records (raw) ─────────────────────────
-// These mirror research/format-spec.md §4-§5. Unknown keys must survive a round trip,
+// These mirror Eagle's files. Unknown keys must survive a round trip,
 // so records are always handled as the parsed object (key order preserved), never rebuilt.
 
 export interface Palette {
@@ -613,7 +613,7 @@ export interface ConflictFile {
   kind: 'root' | 'item' | 'mtime' | 'tags' | 'thumbnail' | 'other';
   itemId: string | null;
   detectedAt: number;
-  /** What differs from the library and couldn't be merged with certainty (docs/specs/merge.md).
+  /** What differs from the library and couldn't be merged with certainty.
    *  The library keeps its own value until resolveConflict says otherwise. Absent: not compared
    *  (a read-only library, or a kind Boogie doesn't merge). */
   questions?: ConflictQuestion[];

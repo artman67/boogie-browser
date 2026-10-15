@@ -60,8 +60,8 @@ describe('mmcq palette (synthetic)', () => {
 
 // Eagle's own palettes are the ground truth. Portrait thumbnails are 320 px wide, so they are
 // analysed unscaled and the palette must match exactly (the research got 79 of 79).
-const ART = resolve('research/sandbox/templates/art-archive.library/images');
-const TEST_LIB = resolve('research/sandbox/templates/sample.library/images');
+const ART = resolve('private/research/sandbox/templates/art-archive.library/images');
+const TEST_LIB = resolve('private/research/sandbox/templates/sample.library/images');
 
 function portraitSamples(
   images: string,

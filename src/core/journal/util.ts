@@ -14,7 +14,7 @@ export const CHANGED_SINCE = 'changed since';
 
 /**
  * Eagle's UI leaks an AngularJS "$$hashKey" into every palette entry on the first edit of an
- * item (live-behavior.md §1). It is noise: a tag change must not look like a palette change.
+ * item. It is noise: a tag change must not look like a palette change.
  */
 function withoutHashKeys(v: unknown): unknown {
   if (Array.isArray(v)) return v.map(withoutHashKeys);

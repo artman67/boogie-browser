@@ -1,5 +1,5 @@
-// Client-side preview of batch rename. Mirrors the rules in docs/specs/service.md (`renameItems`) so
-// the preview matches what the service will do:
+// Client-side preview of batch rename. Mirrors the service's `renameItems` rules so the preview
+// matches what the service will do:
 //   *    original name        %N   running number from `start`, zero-padded to the width of the last one
 //   %D   YYYYMMDD of date added   %DD  YYYY-MM-DD   %DDD  YYYY-MM-DD HH.mm.ss   %T  tags joined by ", "
 // Find/replace (optionally a regex) runs after the template. Dates use local time, like Eagle's UI.

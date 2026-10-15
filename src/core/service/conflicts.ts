@@ -1,4 +1,4 @@
-// Dropbox conflicted copies get merged, not just listed (docs/specs/merge.md).
+// Dropbox conflicted copies get merged, not just listed.
 //
 // When the watcher or the verify pass finds a copy in a library that may be edited, and both the
 // copy and its live file have settled (Dropbox says "up to date", or can't say):

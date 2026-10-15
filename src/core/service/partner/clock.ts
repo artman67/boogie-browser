@@ -8,7 +8,7 @@
 // A backlog Dropbox delivers after hours offline looks like a clock far behind, so the estimate is
 // trusted only once several samples arrived spread over a couple of minutes, and only while their
 // stamps span about as much time as the arrivals: a backlog squeezes an evening of saves into a
-// few minutes of downloading (review5 should-fix 1). Only the last day counts (clocks drift, and
+// few minutes of downloading. Only the last day counts (clocks drift, and
 // get fixed).
 
 export const CLOCK_RULES = {
@@ -46,7 +46,7 @@ export class PartnerClock {
       spread(xs.map((x) => x.arrived + x.offset)) - spread(xs.map((x) => x.arrived)) >
       CLOCK_RULES.maxSquashMs;
     // A backlog among them: estimate from the newer ones, dropping the oldest until the rest
-    // agree (a morning backlog must not hide a real offset for the rest of the day, review6).
+    // agree (a morning backlog must not hide a real offset for the rest of the day).
     while (recent.length >= CLOCK_RULES.minSamples && squashed(recent)) recent.shift();
     if (recent.length < CLOCK_RULES.minSamples) return null;
     if (spread(recent.map((x) => x.arrived)) < CLOCK_RULES.minSpreadMs) return null;

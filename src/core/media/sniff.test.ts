@@ -88,9 +88,9 @@ describe('sniffExt (files)', () => {
     expect(await sniffExt(join(dir, 'x.ps'))).toBe('ps');
   });
 
-  // Research/library-survey: one Art Archive .tif is really a WebP. Read-only.
+  // One Art Archive .tif is really a WebP. Read-only.
   const AA_TIF = resolve(
-    'research/sandbox/templates/art-archive.library/images/LPCWF9IUL3E30.info',
+    'private/research/sandbox/templates/art-archive.library/images/LPCWF9IUL3E30.info',
   );
   it.skipIf(!existsSync(AA_TIF))(
     'the Art Archive .tif that is really WebP comes back as webp',

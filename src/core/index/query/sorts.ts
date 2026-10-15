@@ -98,7 +98,7 @@ export function sqlOrderExpr(by: OrderBy, manualFolderId: string | null): SqlOrd
     case 'MTIME':
       return { expr: timeOrImport('mtime'), params: [] };
     case 'MANUAL':
-      // TEXT compare (format-spec §9): the key is item.order[folder] (an empty value counts as
+      // TEXT compare: the key is item.order[folder] (an empty value counts as
       // missing, like Eagle's truthiness test), else String(modificationTime).
       if (manualFolderId === null) return { expr: 'i.imported_at_str', params: [] };
       return {

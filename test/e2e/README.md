@@ -4,7 +4,7 @@ These drive the **built Electron app with the real core** on private copies of l
 libraries, the way you'd use it: clicks, keys, drags, dialogs. Every test that edits something
 checks the library files on disk afterwards (`metadata.json`, `mtime.json`, the root file).
 
-The suite expects two local sample libraries in `research/sandbox/templates/`: `sample.library`
+The suite expects two local sample libraries in `private/research/sandbox/templates/`: `sample.library`
 and `art-archive.library` (a large one, about 5.4k items). They are not in the repo, so on a fresh
 clone this suite can't run. The unit tests, `npm run dev:web` and the smoke test (`npm run e2e`)
 fall back to the small libraries in `test/fixtures/libraries/` when they are missing.
@@ -24,7 +24,7 @@ reaches the desktop or the real clipboard: the launch helper refuses to start El
 
 Everything the app writes lands in `.tmp/electron-qa/`:
 
-- `libs/` fresh reflinked copies of `research/sandbox/templates/sample.library` (one per test
+- `libs/` fresh reflinked copies of `private/research/sandbox/templates/sample.library` (one per test
   file) and one shared read-only copy of the Art Archive (`art.library`, 5.4k items)
 - `home/<file>/` the `BOOGIE_HOME` of each test file (config, index, journal)
 - `fixtures/` small images, a GIF, two videos and a folder tree made with `magick` / `ffmpeg`

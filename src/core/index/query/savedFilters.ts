@@ -4,9 +4,7 @@
 // defaults ({...defaultRules, ...rule}), so every section we write goes in whole. Editing a filter
 // here rewrites only the sections whose Boogie fields changed: every other section stays byte for
 // byte, including what Boogie can't apply (camera, fonts, BPM, search by image, AI search, web-video
-// types, separate months, "today") and keys from a newer Eagle. research/format-notes/
-// smartfolders-filters.md "saved-filters.json" and Eagle's filterData (app.bundle.js) are the
-// reference.
+// types, separate months, "today") and keys from a newer Eagle.
 import type { FilterSpec, RangeFilter, Shape } from '../../../shared/types';
 import { stringList } from '../project';
 

@@ -34,7 +34,7 @@ import { importers } from './importer';
 
 const PROJECT = fileURLToPath(new URL('../../../', import.meta.url));
 // The real library copy when it is here, else the generated one committed with the tests.
-const REAL = join(PROJECT, 'research/sandbox/templates/sample.library');
+const REAL = join(PROJECT, 'private/research/sandbox/templates/sample.library');
 export const TEMPLATE =
   !process.env.BOOGIE_TEST_FIXTURES && existsSync(REAL)
     ? REAL
@@ -304,7 +304,7 @@ async function build(
 
 // ───────────────────────── Test files ─────────────────────────
 
-/** Small images made with ImageMagick (installed on this machine, per CLAUDE.md). */
+/** Small images made with ImageMagick (`magick` must be installed). */
 export function makeImage(path: string, spec: string, format?: 'png' | 'jpg' | 'gif'): void {
   execFileSync('magick', [...spec.split(' '), format ? `${format}:${path}` : path]);
 }

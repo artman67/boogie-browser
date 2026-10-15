@@ -2,7 +2,7 @@
 // update, the MCP smart folder tool) before they are written into the library, the way Eagle's own
 // API checks them: known property, a method that property takes, and a value of the right shape.
 // A bad rule would otherwise land in the shared metadata.json and quietly empty the folder in
-// the partner's Eagle. The property table is research/format-notes/smartfolders-filters.md.
+// the partner's Eagle.
 import type { SmartCondition, SmartRule } from '../../shared/types';
 
 const TEXT = [

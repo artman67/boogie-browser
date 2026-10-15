@@ -1,4 +1,4 @@
-// Field-level inverse of one item's metadata.json change (PLAN "Write safety" §3).
+// Field-level inverse of one item's metadata.json change.
 //
 // `undoItem` is pure and works on whatever record it is given. The planner runs it once on a
 // clone of the current record (to find conflicts) and the returned `apply` runs it again on
@@ -21,7 +21,7 @@ export function undoItem(rec: Rec, before: Rec, after: Rec): ItemUndo {
   const out: ItemUndo = { changed: false, conflicts: [] };
   const handled = new Set(SKIP);
 
-  // Trash state is one unit: isDeleted and deletedTime move together (format-spec §14).
+  // Trash state is one unit: isDeleted and deletedTime move together.
   if (!!before.isDeleted !== !!after.isDeleted) {
     handled.add('isDeleted').add('deletedTime');
     if (!!rec.isDeleted === !!after.isDeleted) {

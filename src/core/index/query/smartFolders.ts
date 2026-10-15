@@ -1,4 +1,4 @@
-// Smart folders: Eagle's rule language (research/format-notes/smartfolders-filters.md).
+// Smart folders: Eagle's rule language.
 //
 // Two implementations of the same rules:
 //  - `evaluateSmartFolder` runs the rules on one parsed item record. It is the reference, and

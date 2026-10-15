@@ -1,5 +1,5 @@
 // Dropbox conflicted copies merged and tidied, on the REAL core against copies of the sample
-// library under .tmp/merge-core/ (docs/specs/merge.md). The partner is simulated by writing the
+// library under .tmp/merge-core/. The partner is simulated by writing the
 // copy files Dropbox would leave. Nothing outside .tmp is touched.
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';

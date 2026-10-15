@@ -1,4 +1,4 @@
-// mtime.json batcher (format-spec 8, live-behavior 2.1 and 4.1).
+// mtime.json batcher.
 //
 // This file is what makes a change show up in the partner's running Eagle (and survive its next save):
 // Eagle notices item edits ONLY through `mtime.json[id]` going up. So every item write, create,

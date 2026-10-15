@@ -373,7 +373,7 @@ export function addSmartFolder(
     siblings = parent.children = Array.isArray(parent.children) ? parent.children : [];
   }
   const id = freshId(root, now);
-  // Eagle always writes icon and iconColor, "" when unset (eagle-proof D.root.smart).
+  // Eagle always writes icon and iconColor, "" when unset.
   const rec = {
     id,
     icon: opts.icon ?? '',

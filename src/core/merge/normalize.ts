@@ -2,8 +2,8 @@
 import type { Rec } from './types';
 
 /**
- * Fields that move whenever Eagle or Boogie saves, or that are derived from the picture
- * (docs/specs/merge.md section 1). They are dropped, at any depth, before anything is compared.
+ * Fields that move whenever Eagle or Boogie saves, or that are derived from the picture.
+ * They are dropped, at any depth, before anything is compared.
  */
 const NOISE = new Set([
   'lastModified',

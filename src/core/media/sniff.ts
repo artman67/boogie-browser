@@ -1,5 +1,5 @@
-// Work out a file's real type from its first bytes, and name it the way Eagle does
-// (thumbs-palette-import 4.2): the content only overrides the file's own extension for seven
+// Work out a file's real type from its first bytes, and name it the way Eagle does:
+// the content only overrides the file's own extension for seven
 // common image types (see `resolveExt`). Probing and decoding still use the full sniff.
 
 import { open } from 'node:fs/promises';
@@ -146,8 +146,8 @@ export function headerSaysAnimated(h: Uint8Array): boolean {
   return ftypBrands(h)?.includes('avis') ?? false;
 }
 
-// Eagle lets the content win over the file's own extension for these types only (its getExt,
-// thumbs-palette-import 4.2). Everything else keeps its declared ext: a .procreate, .potx or
+// Eagle lets the content win over the file's own extension for these types only (its getExt).
+// Everything else keeps its declared ext: a .procreate, .potx or
 // .usdz is a zip inside, a .dng or .tif may be anything TIFF-like, a .ps is PostScript, a .psdt
 // is a PSD, and Eagle stores them all under their own names.
 const CONTENT_WINS = new Set(['jpg', 'png', 'gif', 'webp', 'heic', 'bmp', 'avif']);

@@ -1,5 +1,4 @@
-// Eagle's thumbnails, reproduced from research/format-spec.md section 6 and
-// thumbs-palette-import.md 1.2-1.6: when there is none (`noThumbnail`), how big it is, and
+// Eagle's thumbnails, reproduced: when there is none (`noThumbnail`), how big it is, and
 // lossy WebP q75 upright bytes for `<name>_thumbnail.png`.
 
 import { randomBytes } from 'node:crypto';

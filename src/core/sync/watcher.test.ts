@@ -237,7 +237,7 @@ describe('our own writes', () => {
   });
 });
 
-// Eagle rewrites mtime.json from memory ~3 s after its own saves (test/eagle-proof FINDINGS 2).
+// Eagle rewrites mtime.json from memory ~3 s after its own saves.
 describe("a partner's Eagle", () => {
   it('a rewrite that lowers or drops our raises is foreign, and hands over what we raised lately', async () => {
     const self = new Map<string, number>();
