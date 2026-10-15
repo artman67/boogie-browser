@@ -16,6 +16,7 @@ import type {
 } from '../../../shared/types';
 import { items } from './items.svelte';
 import { selection } from './selection.svelte';
+import { tabs } from './tabs.svelte';
 import { ui } from './ui.svelte';
 import { view } from './view.svelte';
 
@@ -53,8 +54,8 @@ class LibraryStore {
     this.#state = next;
     if (!this.started || !next) return;
     if (next.ref.id !== prev?.ref.id) {
-      // The viewer and the pickers hold the old library's item ids.
-      ui.viewer = null;
+      // The viewer, the tabs and the pickers hold the old library's item ids.
+      tabs.load(next.ref.id);
       ui.closeOverlay();
       selection.clear();
       items.clear();
@@ -97,9 +98,30 @@ class LibraryStore {
     // event and is newer than the answers above: don't overwrite it with "nothing open".
     if (!this.#state) this.state = first;
     this.started = true;
-    if (this.state) view.reset(this.state.ref.id, (s) => this.exists(s));
+    if (this.state) {
+      view.reset(this.state.ref.id, (s) => this.exists(s));
+      tabs.load(this.state.ref.id);
+    }
     this.markReady();
     if (this.state) await this.reloadMeta();
+  }
+
+  /**
+   * A pop-out viewer window: follows the library the main window has open (its settings, tags and
+   * read-only state), but leaves choosing one, and the grid's view, to the main window.
+   */
+  async attach(): Promise<void> {
+    this.subscribe();
+    const [settings, status, state] = await Promise.all([
+      api.getSettings(),
+      api.getStatus(),
+      api.getLibraryState(),
+    ]);
+    this.settings = settings;
+    this.status = status;
+    if (!this.#state) this.#state = state;
+    this.markReady();
+    if (this.#state) await this.reloadMeta();
   }
 
   async open(path: string, opts?: { readOnly?: boolean }): Promise<void> {

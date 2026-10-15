@@ -78,7 +78,6 @@ export function registerTriageCommands(): () => void {
       title: 'Triage this view',
       group: 'Items',
       icon: 'inbox',
-      keys: ['Ctrl+Shift+T'],
       when: (c) =>
         clear(c) &&
         !!library.state &&

@@ -58,6 +58,7 @@ function buildMenu(id: string): MenuItem[] {
 
   const menu: MenuItem[] = [
     open,
+    { label: 'Open in a new tab', keys: 'Ctrl Enter', run: () => act.openInTab(id) },
     { label: 'Open in reference window', keys: 'Ctrl O', run: () => openReference(id) },
     { label: 'Open with default app', run: () => openDefault(id) },
     { label: 'Reveal in folder', run: () => reveal(id) },

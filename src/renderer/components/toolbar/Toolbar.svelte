@@ -2,28 +2,19 @@
   // The 48 px bar above the grid: panel toggles, back/forward, where you are (with view options),
   // thumbnail zoom, sort, color search, filters, the command bar, "+" and Settings. Its empty
   // middle is the window's drag region. Also registers the app-wide shortcuts (see globalCommands.ts).
-  import type { Component } from 'svelte';
   import ArrowDownWideNarrow from '@lucide/svelte/icons/arrow-down-wide-narrow';
   import ArrowUpNarrowWide from '@lucide/svelte/icons/arrow-up-narrow-wide';
   import ChevronDown from '@lucide/svelte/icons/chevron-down';
   import ChevronLeft from '@lucide/svelte/icons/chevron-left';
   import ChevronRight from '@lucide/svelte/icons/chevron-right';
-  import Folder from '@lucide/svelte/icons/folder';
   import Funnel from '@lucide/svelte/icons/funnel';
   import ImageIcon from '@lucide/svelte/icons/image';
-  import Images from '@lucide/svelte/icons/images';
-  import Inbox from '@lucide/svelte/icons/inbox';
   import PanelLeft from '@lucide/svelte/icons/panel-left';
   import PanelRight from '@lucide/svelte/icons/panel-right';
   import Pipette from '@lucide/svelte/icons/pipette';
   import Plus from '@lucide/svelte/icons/plus';
   import Search from '@lucide/svelte/icons/search';
   import Settings from '@lucide/svelte/icons/settings';
-  import Shuffle from '@lucide/svelte/icons/shuffle';
-  import Sparkles from '@lucide/svelte/icons/sparkles';
-  import Tag from '@lucide/svelte/icons/tag';
-  import Tags from '@lucide/svelte/icons/tags';
-  import Trash2 from '@lucide/svelte/icons/trash-2';
   import { openMenuBelow } from '../../lib/contextMenu.svelte';
   import { readOnlyTip } from '../../lib/edit';
   import { setThumbSize, ZOOM_MAX, ZOOM_MIN } from '../../lib/prefs';
@@ -31,47 +22,12 @@
   import { library } from '../../lib/stores/library.svelte';
   import { ui } from '../../lib/stores/ui.svelte';
   import { view } from '../../lib/stores/view.svelte';
-  import { FOLDER_COLORS } from '../../../shared/types';
   import { filterUi } from '../filters/filterUi.svelte';
+  import { whereYouAre } from './where';
   import { emptyTrash } from '../../lib/appCommands';
   import { addMenu, currentSort, sortMenu, viewMenu } from './menus';
 
-  // Where you are: an icon, a name, and (for folders) the folder's color.
-  const where = $derived.by<{ name: string; icon: Component<any>; color?: string }>(() => {
-    const s = view.scope;
-    switch (s.kind) {
-      case 'all':
-        return { name: 'All', icon: Images };
-      case 'uncategorized':
-        return { name: 'Uncategorized', icon: Inbox };
-      case 'untagged':
-        return { name: 'Untagged', icon: Tags };
-      case 'trash':
-        return { name: 'Trash', icon: Trash2 };
-      case 'random':
-        return { name: 'Random', icon: Shuffle };
-      case 'folder': {
-        const f = library.folder(s.id)?.node;
-        return {
-          name: f?.name ?? 'Folder',
-          icon: Folder,
-          color: f?.iconColor ? FOLDER_COLORS[f.iconColor] : undefined,
-        };
-      }
-      case 'smartFolder': {
-        const f = library.smartFolders.get(s.id);
-        return {
-          name: f?.name ?? 'Smart folder',
-          icon: Sparkles,
-          color: f?.iconColor ? FOLDER_COLORS[f.iconColor] : undefined,
-        };
-      }
-      case 'tag':
-        return { name: s.name, icon: Tag };
-      case 'ids':
-        return { name: 'Selected items', icon: Images };
-    }
-  });
+  const where = $derived(whereYouAre());
 
   const sort = $derived(currentSort());
   const SortIcon = $derived(sort.ascending ? ArrowUpNarrowWide : ArrowDownWideNarrow);

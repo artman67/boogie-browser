@@ -136,6 +136,14 @@ export function registerGridCommands(nav: GridNav): () => void {
       run: () => act.openViewer('detail', selection.primary!),
     },
     {
+      id: 'grid.openTab',
+      title: 'Open in a new tab',
+      keys: ['Ctrl+Enter'],
+      group: 'Items',
+      when: (c) => active(c) && !!selection.primary,
+      run: () => act.openInTab(selection.primary!),
+    },
+    {
       id: 'grid.quickLook',
       title: 'Quick look',
       keys: ['Space'],

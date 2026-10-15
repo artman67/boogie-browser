@@ -69,7 +69,9 @@ export function on<K extends BoogieEventName>(event: K, fn: Handler<K>): () => v
 }
 
 const search = new URLSearchParams(typeof location !== 'undefined' ? location.search : '');
-export const windowKind = bridge?.windowKind ?? {
-  kind: search.get('window') === 'reference' ? ('reference' as const) : ('main' as const),
+const kindName = search.get('window');
+export const windowKind: BoogieBridge['windowKind'] = bridge?.windowKind ?? {
+  kind: kindName === 'reference' || kindName === 'viewer' ? kindName : 'main',
   itemId: search.get('item'),
+  itemIds: search.get('items')?.split(',').filter(Boolean),
 };

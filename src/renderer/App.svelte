@@ -10,10 +10,14 @@
   import { selection } from './lib/stores/selection.svelte';
   import { ui } from './lib/stores/ui.svelte';
   import { triage } from './lib/stores/triage.svelte';
+  import { tabs } from './lib/stores/tabs.svelte';
   import { installKeyHandler } from './lib/commands.svelte';
   import { registerAppCommands } from './lib/appCommands';
   import Sidebar from './components/sidebar/Sidebar.svelte';
   import Toolbar from './components/toolbar/Toolbar.svelte';
+  import TabStrip from './components/tabs/TabStrip.svelte';
+  import DockTarget from './components/tabs/DockTarget.svelte';
+  import { registerTabCommands } from './components/tabs/commands';
   import FilterBar from './components/filters/FilterBar.svelte';
   import Grid from './components/grid/Grid.svelte';
   import Inspector from './components/inspector/Inspector.svelte';
@@ -29,14 +33,17 @@
   onMount(() => {
     const uninstall = installKeyHandler(window);
     const offCommands = registerAppCommands();
+    const offTabs = registerTabCommands();
     const offReveal = on('reveal', (r) => void revealThing(r));
+    // A pop-out window's "Put back in the tabs".
+    const offTabIn = on('tabIn', ({ id, ids }) => tabs.open(ids, Math.max(0, ids.indexOf(id))));
     view.subscribe();
     items.subscribe();
     void (async () => {
       await library.init();
       if (!library.state) ui.openDialog('libraries');
     })();
-    return () => (uninstall(), offCommands(), offReveal());
+    return () => (uninstall(), offCommands(), offTabs(), offReveal(), offTabIn());
   });
 
   // Coming back to the window: check the library for outside changes (the partner's Eagle, Dropbox).
@@ -60,7 +67,10 @@
   });
 </script>
 
-<svelte:window onfocus={onWindowFocus} />
+<svelte:window onfocus={onWindowFocus} onbeforeunload={() => tabs.flush()} />
+
+{#if tabs.list.length}<div inert={!!triage.session}><TabStrip /></div>{/if}
+<DockTarget />
 
 <div class="shell" class:no-side={!ui.sidebarVisible} class:no-insp={!ui.inspectorVisible}>
   {#if ui.sidebarVisible}<aside class="side" inert={covered}><Sidebar /></aside>{/if}
@@ -85,7 +95,7 @@
 <style>
   .shell {
     display: grid;
-    height: 100vh;
+    height: calc(100vh - var(--tabs-h, 0px));
     grid-template-columns: var(--sidebar-w) minmax(0, 1fr) var(--inspector-w);
     grid-template-rows: minmax(0, 1fr) var(--strip-h);
     grid-template-areas: 'side main insp' 'strip strip strip';

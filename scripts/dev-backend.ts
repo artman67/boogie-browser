@@ -34,6 +34,7 @@ const EVENTS = [
   'history',
   'status',
   'reveal',
+  'tabIn',
 ] as const satisfies readonly BoogieEventName[];
 const _allEvents: Exclude<BoogieEventName, (typeof EVENTS)[number]> extends never ? true : never =
   true;
@@ -153,6 +154,9 @@ export function devBackend(): Plugin {
           exportJobs.start(ids, out, o),
         showFolder: note('showFolder'),
         openReferenceWindow: note('openReferenceWindow'),
+        openViewerWindow: note('openViewerWindow'),
+        popInViewer: note('popInViewer'),
+        showInMainWindow: note('showInMainWindow'),
         getPathForFile: () => '',
         windowControl: note('windowControl'),
       };

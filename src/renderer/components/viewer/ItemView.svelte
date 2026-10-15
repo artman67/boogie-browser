@@ -13,6 +13,7 @@
   import type { AnimPlayer } from './anim.svelte';
   import { viewKind } from '../../lib/fileKinds';
   import { FIT_VIEW, type StageView } from './stageMath';
+  import { isLive } from './live';
   import { viewer, type Player } from './state.svelte';
 
   interface Props {
@@ -32,11 +33,12 @@
   const bg = $derived(variant === 'present' ? ('none' as const) : viewer.bg);
   let view = $state<StageView>(FIT_VIEW);
   let anim = $state<AnimPlayer | null>(null);
+  const live = isLive();
 
   // Space, [ ] and Shift+< > work on an animated picture like they do on a video.
   $effect(() => {
     const a = anim;
-    if (!a?.ready) return;
+    if (!a?.ready || !live()) return;
     const player: Player = {
       kind: 'gif',
       toggle: () => a.toggle(),

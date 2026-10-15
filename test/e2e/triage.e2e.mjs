@@ -1,4 +1,4 @@
-// Triage mode in the real app, checked on disk: Ctrl+Shift+T starts on the view, 0 files into a
+// Triage mode in the real app, checked on disk: the command palette starts it on the view, 0 files into a
 // picked folder, an empty number key asks for its folder and keeps it, letter keys tag and untag,
 // Shift+digits rate, X trashes and U takes it back, S skips, Enter finishes, every change is one
 // History entry, and Esc goes back to the grid as it was.
@@ -22,6 +22,17 @@ describe('triage', () => {
   let folders;
   let selectedBefore;
   const it = withShots(() => ctx);
+  /** Triage has no key of its own (Ctrl+Shift+T reopens a closed tab): start it from the palette. */
+  const start = async () => {
+    const { win } = ctx;
+    await win.keyboard.press('Control+k');
+    await win
+      .getByRole('combobox', { name: 'Search, filter, or run a command' })
+      .fill('Triage this view');
+    await win.locator('.po', { hasText: 'Triage this view' }).first().waitFor();
+    await win.keyboard.press('Enter');
+    await win.locator('.tri').waitFor();
+  };
   const pos = () => ctx.win.locator('.tri .stage .pos').innerText();
   const current = async () => {
     const s = await ctx.win.evaluate(() =>
@@ -54,8 +65,7 @@ describe('triage', () => {
     const first = (await ctx.call('query', { scope: { kind: 'all' }, filter: {}, sort: null })).ids;
     await tile(win, first[2]).locator('.th').click(); // a selection to come back to
     selectedBefore = await selectedIds(win);
-    await win.keyboard.press('Control+Shift+T');
-    await win.locator('.tri').waitFor();
+    await start();
     assert.equal(await pos(), '1 of 7');
 
     const a = await current();
@@ -134,8 +144,7 @@ describe('triage', () => {
     const byName = (n) => items.find((i) => i.name === n).id;
     const [red, green] = [byName('red'), byName('green')];
     await ctx.call('updateItems', [red, green], { annotation: 'Student of: Gerome' });
-    await win.keyboard.press('Control+Shift+T');
-    await win.locator('.tri').waitFor();
+    await start();
     for (let i = 0; i < 7 && (await current()) !== red; i++) await press('ArrowRight');
     assert.equal(await current(), red);
     const card = win.locator('.sg', { hasText: 'Tag Atelier Gerome' });
@@ -158,8 +167,7 @@ describe('triage', () => {
     const inTrash = async () =>
       (await ctx.call('query', { scope: { kind: 'trash' }, filter: {}, sort: null })).ids.length;
     const before = await inTrash();
-    await win.keyboard.press('Control+Shift+T');
-    await win.locator('.tri').waitFor();
+    await start();
     // One press and six auto-repeats, like holding X for a moment.
     await win.keyboard.down('x');
     for (let i = 0; i < 6; i++) (await sleep(30), await win.keyboard.down('x'));

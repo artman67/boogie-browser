@@ -1,7 +1,10 @@
 <script lang="ts">
-  // Detail view: a fixed overlay over the window, except the inspector column (App keeps drawing
-  // the inspector there and it follows the selection, which Viewer.svelte keeps on this item) and
-  // the status strip along the bottom, which stays whole under both.
+  // Detail view: a fixed overlay over the window, except the tab row on top, the inspector column
+  // (App keeps drawing the inspector there and it follows the selection, which Viewer.svelte keeps
+  // on this item) and the status strip along the bottom, which stays whole under both.
+  // It stays mounted while any item tab is open and holds a view for each (TabPane), hidden while
+  // the library or another mode is on screen. In a pop-out window it is the whole window.
+  import AppWindow from '@lucide/svelte/icons/app-window';
   import ArrowLeft from '@lucide/svelte/icons/arrow-left';
   import ChevronLeft from '@lucide/svelte/icons/chevron-left';
   import ChevronRight from '@lucide/svelte/icons/chevron-right';
@@ -9,26 +12,40 @@
   import ExternalLink from '@lucide/svelte/icons/external-link';
   import FlipHorizontal from '@lucide/svelte/icons/flip-horizontal';
   import Grid3x3 from '@lucide/svelte/icons/grid-3x3';
+  import LayoutGrid from '@lucide/svelte/icons/layout-grid';
   import Moon from '@lucide/svelte/icons/moon';
   import PanelRight from '@lucide/svelte/icons/panel-right';
   import RotateCw from '@lucide/svelte/icons/rotate-cw';
   import Sun from '@lucide/svelte/icons/sun';
+  import SquareArrowDownLeft from '@lucide/svelte/icons/square-arrow-down-left';
   import SquareArrowOutUpRight from '@lucide/svelte/icons/square-arrow-out-up-right';
+  import X from '@lucide/svelte/icons/x';
+  import { api, windowKind } from '../../lib/api';
   import { openMenuBelow } from '../../lib/contextMenu.svelte';
   import { items } from '../../lib/stores/items.svelte';
+  import { tabs } from '../../lib/stores/tabs.svelte';
   import { ui } from '../../lib/stores/ui.svelte';
   import { openDefault } from '../../lib/files';
-  import { openReferenceHere } from './actions';
-  import { closeViewer } from './commands';
+  import {
+    draggedToTabs,
+    dragToTabs,
+    openReferenceHere,
+    popOut,
+    putBack,
+    showInMainWindow,
+  } from './actions';
   import { openItemMenu } from './menu';
   import IconBtn from './IconBtn.svelte';
-  import ItemView from './ItemView.svelte';
+  import TabPane from './TabPane.svelte';
   import { viewKind } from '../../lib/fileKinds';
   import { currentId, step } from './nav';
   import { viewer } from './state.svelte';
   import { useItem } from './useItem.svelte';
 
-  const id = $derived(currentId());
+  const popout = windowKind.kind === 'viewer';
+  // On screen: an item tab is, and nothing else (a slideshow started from it) is on top.
+  const shown = $derived(!!tabs.active && ui.viewer?.mode === 'detail');
+  const id = $derived(shown ? currentId() : undefined);
   const cur = useItem(() => id);
   const item = $derived(cur.value);
   const name = $derived(item?.name ?? (id ? items.brief(id)?.name : '') ?? '');
@@ -74,16 +91,37 @@
 
 <div
   class="detail"
-  style:right={ui.inspectorVisible ? 'var(--inspector-w)' : '0'}
+  class:off={!shown}
+  class:popout
+  inert={!shown}
+  style:right={ui.inspectorVisible && !popout ? 'var(--inspector-w)' : '0'}
   role="dialog"
   aria-label="Detail view"
 >
   <header class="bar">
-    <IconBtn label="Back to the grid" title="Back (Esc)" onclick={() => (ui.viewer = null)}
-      ><ArrowLeft size={17} /></IconBtn
+    {#if popout}
+      <IconBtn
+        label="Put back in the tabs"
+        title="Put back in the tabs"
+        onclick={() => void putBack()}><SquareArrowDownLeft size={17} /></IconBtn
+      >
+    {:else}
+      <IconBtn
+        label="Back to the library"
+        title="Close this tab and go back (Esc)"
+        onclick={() => (ui.viewer = null)}><ArrowLeft size={17} /></IconBtn
+      >
+    {/if}
+    <!-- In a pop-out the title is a handle: drop it on the main window to put it back in the tabs. -->
+    <div
+      class="title"
+      role="group"
+      draggable={popout ? 'true' : undefined}
+      title={popout ? 'Drag onto the main window to put it back in the tabs' : undefined}
+      ondragstart={popout ? dragToTabs : undefined}
+      ondragend={popout ? draggedToTabs : undefined}
     >
-    <div class="title">
-      <span class="name" title={name}>{name}</span>
+      <span class="name" title={popout ? undefined : name}>{name}</span>
       <span class="idx">{index + 1} / {total.toLocaleString()}</span>
     </div>
     <span class="sp"></span>
@@ -128,6 +166,14 @@
         />{:else}<Sun size={16} />{/if}
     </IconBtn>
     <span class="rule"></span>
+    {#if !popout}
+      <IconBtn
+        label="Pop out into its own window"
+        title="Pop out into its own window"
+        disabled={!tabs.active}
+        onclick={() => tabs.active && void popOut(tabs.active)}><AppWindow size={16} /></IconBtn
+      >
+    {/if}
     <IconBtn
       label="Open in reference window"
       title="Open in reference window (Ctrl+O)"
@@ -140,25 +186,37 @@
       disabled={!id}
       onclick={() => id && void openDefault(id)}><ExternalLink size={16} /></IconBtn
     >
-    <IconBtn
-      label="Info panel"
-      title="Show or hide the info panel"
-      toggle
-      on={ui.inspectorVisible}
-      onclick={() => (ui.inspectorVisible = !ui.inspectorVisible)}><PanelRight size={16} /></IconBtn
-    >
+    {#if popout}
+      <IconBtn
+        label="Show in library"
+        title="Show in the library window"
+        disabled={!id}
+        onclick={() => id && void showInMainWindow(id)}><LayoutGrid size={16} /></IconBtn
+      >
+      <span class="rule"></span>
+      <IconBtn
+        label="Close window"
+        title="Close this window (Esc)"
+        onclick={() => void api.windowControl('close')}><X size={17} /></IconBtn
+      >
+    {:else}
+      <IconBtn
+        label="Info panel"
+        title="Show or hide the info panel"
+        toggle
+        on={ui.inspectorVisible}
+        onclick={() => (ui.inspectorVisible = !ui.inspectorVisible)}
+        ><PanelRight size={16} /></IconBtn
+      >
+    {/if}
   </header>
 
-  <!-- Double-click on the picture closes the view, as in Eagle (Ctrl+0 / Ctrl+9 and the zoom menu
-       do 100% and fit). -->
   <div class="body" role="presentation" oncontextmenu={(e) => id && openItemMenu(e, id)}>
-    {#key id}
-      {#if item}
-        <ItemView {item} variant="detail" ondblclick={closeViewer} />
-      {:else if item === null}
-        <p class="gone">This item isn’t available any more.</p>
+    {#each tabs.list as tab (tab.key)}
+      {#if tab.key === tabs.active || tabs.seen.has(tab.key)}
+        <TabPane {tab} live={shown && tab.key === tabs.active} />
       {/if}
-    {/key}
+    {/each}
     {#if index > 0}
       <button
         type="button"
@@ -184,13 +242,20 @@
   .detail {
     position: fixed;
     z-index: 60;
-    top: 0;
+    top: var(--tabs-h, 0px);
     left: 0;
     bottom: var(--strip-h);
     display: flex;
     flex-direction: column;
     background: var(--bg);
     animation: fade 120ms ease-out;
+  }
+  .off {
+    visibility: hidden;
+  }
+  .popout {
+    top: 0;
+    bottom: 0;
   }
   @keyframes fade {
     from {
@@ -206,6 +271,19 @@
     padding: 0 10px;
     border-bottom: 1px solid var(--line);
     background: var(--bg);
+  }
+  /* A pop-out window has no frame: its bar moves it, like the main window's toolbar. */
+  .popout .bar {
+    -webkit-app-region: drag;
+    user-select: none;
+  }
+  .popout .bar :global(button),
+  .popout .bar :global(input) {
+    -webkit-app-region: no-drag;
+  }
+  .popout .title {
+    -webkit-app-region: no-drag;
+    cursor: grab;
   }
   .title {
     display: flex;
@@ -264,13 +342,6 @@
     position: relative;
     flex: 1;
     min-height: 0;
-  }
-  .gone {
-    display: grid;
-    place-items: center;
-    height: 100%;
-    margin: 0;
-    color: var(--fa);
   }
   .nav {
     position: absolute;

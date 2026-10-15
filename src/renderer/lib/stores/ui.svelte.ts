@@ -1,4 +1,6 @@
 // Panels, overlays, viewer and dialogs. One overlay and one dialog at a time.
+import { tabs, type ViewerState } from './tabs.svelte';
+
 export type OverlayKind = 'command' | 'tags' | 'folderPicker' | 'goToFolder' | 'rename';
 export type DialogKind =
   | 'libraries' // open / create / switch
@@ -33,12 +35,14 @@ class UIStore {
   /**
    * detail = full view, quicklook = space-bar preview, compare = side by side, present = slideshow.
    * Raw: `ids` can be the grid's whole 85k-item list. Replace it whole, never mutate it.
+   * Kept by the tabs store: opening, stepping and closing the detail view is what its tabs do.
    */
-  viewer = $state.raw<{
-    mode: 'detail' | 'quicklook' | 'compare' | 'present';
-    ids: string[];
-    index: number;
-  } | null>(null);
+  get viewer(): ViewerState | null {
+    return tabs.viewer;
+  }
+  set viewer(v: ViewerState | null) {
+    tabs.viewer = v;
+  }
   dialog = $state<{ kind: DialogKind; props?: Record<string, unknown> } | null>(null);
   toasts = $state<Toast[]>([]);
   /** An item to select and scroll to once the grid's result has it (a link was opened). */

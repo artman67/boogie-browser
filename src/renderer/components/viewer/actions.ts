@@ -5,6 +5,7 @@ import { api, inElectron } from '../../lib/api';
 import { canEdit, editItems, fail, mutate } from '../../lib/edit';
 import { leaveFolders } from '../../lib/folders';
 import { items } from '../../lib/stores/items.svelte';
+import { around, tabItem, tabs } from '../../lib/stores/tabs.svelte';
 import { ui } from '../../lib/stores/ui.svelte';
 import { view } from '../../lib/stores/view.svelte';
 
@@ -85,6 +86,60 @@ export async function openReferenceHere(id: string): Promise<void> {
   const ids = v && at >= 0 ? [...v.ids.slice(Math.max(0, at - 2000), at + 2000)] : [id];
   try {
     await api.openReferenceWindow(id, ids);
+  } catch (e) {
+    fail(e);
+  }
+}
+
+/** A tab into its own window, stepping through the same list. The tab closes here. */
+export async function popOut(key: string): Promise<void> {
+  const t = tabs.get(key);
+  if (!t) return;
+  try {
+    await api.openViewerWindow(tabItem(t), around(t.ids, t.index, 2000).ids);
+    tabs.close(key, false);
+  } catch (e) {
+    fail(e);
+  }
+}
+
+/** In a pop-out window: back to a tab in the main window, and this window closes. */
+export async function putBack(): Promise<void> {
+  const v = ui.viewer;
+  const id = v?.ids[v.index];
+  if (!v || !id) return;
+  try {
+    await api.popInViewer(id, around(v.ids, v.index, 2000).ids);
+    await api.windowControl('close');
+  } catch (e) {
+    fail(e);
+  }
+}
+
+/** A pop-out's title dragged onto the main window: { id, ids } as JSON (see tabs/DockTarget). */
+export const TAB_DRAG = 'application/x-boogie-tab';
+
+/**
+ * In a pop-out window: drag the title onto the main window to put it back in the tabs. (Wayland
+ * doesn't tell an app where its windows are, so dropping the window itself can't be noticed.)
+ */
+export function dragToTabs(e: DragEvent): void {
+  const v = ui.viewer;
+  const id = v?.ids[v.index];
+  if (!v || !id || !e.dataTransfer) return;
+  e.dataTransfer.setData(TAB_DRAG, JSON.stringify({ id, ids: around(v.ids, v.index, 2000).ids }));
+  e.dataTransfer.effectAllowed = 'move';
+}
+
+/** The main window took it: this window's job is done. */
+export function draggedToTabs(e: DragEvent): void {
+  if (e.dataTransfer?.dropEffect === 'move') void api.windowControl('close');
+}
+
+/** In a pop-out window: the main window comes forward with the item selected in the grid. */
+export async function showInMainWindow(id: string): Promise<void> {
+  try {
+    await api.showInMainWindow(id);
   } catch (e) {
     fail(e);
   }

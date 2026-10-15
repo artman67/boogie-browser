@@ -6,6 +6,7 @@ import { api } from '../api';
 import { focus, type Region } from '../commands.svelte';
 import { library } from './library.svelte';
 import { selection } from './selection.svelte';
+import { tabs } from './tabs.svelte';
 import { ui } from './ui.svelte';
 import { view } from './view.svelte';
 import { loadKeys, queueKey, seedKeys, type KeyMap } from '../triageKeys';
@@ -188,7 +189,7 @@ class TriageStore {
     if (!q.ids.length) return (ui.toast('Nothing to triage here'), false);
     if (library.state?.ref.id !== lib.ref.id) return false; // another library opened meanwhile
 
-    ui.viewer = null;
+    tabs.show(null); // the item tabs stay open behind Triage
     ui.closeOverlay();
     const skip = q.scope.kind === 'folder' ? q.scope.id : null;
     const keys = loadKeys(lib.ref.id, queueKey(q.scope), () =>
