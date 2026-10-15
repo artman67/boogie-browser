@@ -16,6 +16,7 @@
   import { frameMenuItems, type FrameActions } from './menu';
   import Slider from './Slider.svelte';
   import { SPEEDS, clock, nextSpeed, stepTarget } from './media';
+  import { isLive } from './live';
   import { viewer, type Player } from './state.svelte';
 
   interface Props {
@@ -28,6 +29,7 @@
     frames?: FrameActions;
   }
   let { media, video, fps = 30, onfullscreen, frames }: Props = $props();
+  const live = isLive();
 
   const VOL_KEY = 'viewer.volume';
   function savedVolume(): { v: number; muted: boolean } {
@@ -156,6 +158,7 @@
   };
   $effect(() => {
     if (!media) return;
+    if (!live()) return void media.pause(); // its tab went behind another
     viewer.player = player;
     return () => {
       if (viewer.player === player) viewer.player = null;

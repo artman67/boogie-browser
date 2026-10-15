@@ -7,6 +7,7 @@ import { leaveFolders } from '../../lib/folders';
 import { plural } from '../../lib/format';
 import { library } from '../../lib/stores/library.svelte';
 import { selection } from '../../lib/stores/selection.svelte';
+import { tabs } from '../../lib/stores/tabs.svelte';
 import { ui } from '../../lib/stores/ui.svelte';
 import { view } from '../../lib/stores/view.svelte';
 
@@ -16,6 +17,13 @@ export function openViewer(mode: 'detail' | 'quicklook', id: string): void {
   const ids = view.result?.ids;
   const index = ids ? ids.indexOf(id) : -1;
   if (ids && index >= 0) ui.viewer = { mode, ids, index };
+}
+
+/** Middle-click or Ctrl+Enter: a tab for it, behind, and you stay in the grid. */
+export function openInTab(id: string): void {
+  const ids = view.result?.ids;
+  const index = ids ? ids.indexOf(id) : -1;
+  if (ids && index >= 0) tabs.open(ids, index, false);
 }
 
 export function compare(ids: string[] = selection.ids): void {

@@ -241,6 +241,12 @@ export interface AppApi {
   showFolder(path: string): Promise<void>;
   /** ids = the list the reference window can step through (default: just id). */
   openReferenceWindow(id: string, ids?: string[]): Promise<void>;
+  /** A tab popped out into its own window: the full detail view, stepping through ids. */
+  openViewerWindow(id: string, ids?: string[]): Promise<void>;
+  /** From a pop-out window: back to a tab in the main window (which comes forward). */
+  popInViewer(id: string, ids: string[]): Promise<void>;
+  /** From a pop-out window: the main window comes forward with the item selected in the grid. */
+  showInMainWindow(id: string): Promise<void>;
   /** For files dropped into the window. Implemented directly in the preload (webUtils), not over IPC. */
   getPathForFile(file: File): string;
   windowControl(action: 'minimize' | 'maximize' | 'close' | 'fullscreen'): void;
@@ -262,6 +268,8 @@ export interface BoogieEvents {
   status: AppStatus;
   /** Bring something into view (eagle:// links, the Eagle API's open hooks). */
   reveal: { kind: 'item' | 'folder' | 'smartFolder'; id: string };
+  /** A pop-out window was put back: a tab for it in the main window. */
+  tabIn: { id: string; ids: string[] };
 }
 
 export type BoogieEventName = keyof BoogieEvents;
@@ -281,6 +289,9 @@ export const APP_API_METHODS = [
   'exportItems',
   'showFolder',
   'openReferenceWindow',
+  'openViewerWindow',
+  'popInViewer',
+  'showInMainWindow',
   'getPathForFile',
   'windowControl',
 ] as const satisfies readonly (keyof AppApi)[];
@@ -303,11 +314,11 @@ export interface BoogieBridge {
   on(event: BoogieEventName, fn: (payload: unknown) => void): () => void;
   getPathForFile(file: File): string;
   startDrag(ids: string[]): void;
-  /** 'main' or 'reference' (the floating reference window), plus its item id. */
+  /** 'main', 'reference' (the floating reference window) or 'viewer' (a popped-out tab), plus its item id. */
   windowKind: {
-    kind: 'main' | 'reference';
+    kind: 'main' | 'reference' | 'viewer';
     itemId: string | null;
-    /** Reference window: the list it steps through (openReferenceWindow's ids), itemId included. */
+    /** Reference and pop-out windows: the list they step through, itemId included. */
     itemIds?: string[];
   };
 }

@@ -5,8 +5,12 @@ import type { BoogieBridge, BoogieEventName } from '../shared/api';
 
 const params = new URLSearchParams(location.search);
 const item = params.get('item');
-// The reference window's step list (windows.ts only sends it when there is more than one item).
+// The reference and pop-out windows' step list (windows.ts only sends it when there is more than one item).
 const items = params.get('items')?.split(',').filter(Boolean) ?? [];
+
+function windowKindOf(name: string | null): BoogieBridge['windowKind']['kind'] {
+  return name === 'reference' || name === 'viewer' ? name : 'main';
+}
 
 const bridge: BoogieBridge = {
   // Electron wraps errors as "Error invoking remote method 'boogie:invoke': Error: <msg>"; keep just <msg>.
@@ -23,7 +27,7 @@ const bridge: BoogieBridge = {
   getPathForFile: (file) => webUtils.getPathForFile(file),
   startDrag: (ids) => ipcRenderer.send('boogie:startDrag', ids),
   windowKind: {
-    kind: params.get('window') === 'reference' ? 'reference' : 'main',
+    kind: windowKindOf(params.get('window')),
     itemId: item,
     itemIds: items.length ? items : item ? [item] : [],
   },

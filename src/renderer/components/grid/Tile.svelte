@@ -12,6 +12,7 @@
   import { duration } from '../../lib/format';
   import { items } from '../../lib/stores/items.svelte';
   import { selection } from '../../lib/stores/selection.svelte';
+  import { tabs } from '../../lib/stores/tabs.svelte';
   import type { LayoutKind } from './layout';
   import { SETTLE_MS, dropSrc, loadedLately, markLoaded } from './thumbLoad';
 
@@ -143,6 +144,7 @@
     {#if b}
       <div class="badges">
         {#if isNew}<span class="new" title="New from outside"></span>{/if}
+        {#if tabs.openIds.has(id)}<span class="open" title="Open in a tab"></span>{/if}
         {#if wantsBadge(b.ext) && !showsPlaceholder}<span class="ext">{b.ext}</span>{/if}
       </div>
       {#if b.duration && (fk === 'video' || fk === 'audio')}<span class="dur"
@@ -232,12 +234,16 @@
     gap: 5px;
     pointer-events: none;
   }
-  .new {
+  .new,
+  .open {
     width: 8px;
     height: 8px;
     border-radius: 50%;
     background: var(--rm);
     box-shadow: 0 0 0 2px color-mix(in srgb, black 45%, transparent);
+  }
+  .open {
+    background: var(--bl);
   }
   .ext,
   .dur,

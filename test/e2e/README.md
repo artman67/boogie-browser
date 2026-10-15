@@ -42,6 +42,7 @@ Everything the app writes lands in `.tmp/electron-qa/`:
 | `search.e2e.mjs`     | keyword grammar, every filter popover, chips                                                                                      |
 | `inspector.e2e.mjs`  | palette color search, preview, folder info editing                                                                                |
 | `viewer.e2e.mjs`     | detail view, quick look, video, GIF, hover previews, compare, slideshow, reference window                                         |
+| `tabs.e2e.mjs`       | item tabs: open, the Library tab, Esc and Ctrl+Shift+T, back after a restart, pop out and put back                                |
 | `formats.e2e.mjs`    | PSD / TIFF previews, AVIF / WebP, PDF viewer                                                                                      |
 | `import.e2e.mjs`     | file drops, duplicate question, + menu imports, folder tree, paste, URL and data: drops                                           |
 | `files-out.e2e.mjs`  | Ctrl+C, copy path, reveal, open, source link, drag out, export, double-click setting                                              |

@@ -223,6 +223,19 @@
     if (id) act.activate(id, e.ctrlKey || e.metaKey);
   }
 
+  // Middle-click opens a tab: pressed and released on the same tile (auxclick doesn't always fire).
+  let middleOn: string | null = null;
+  function onMouseDown(e: MouseEvent) {
+    if (e.button !== 1) return;
+    middleOn = tileId(e.target);
+    if (middleOn) e.preventDefault(); // no autoscroll
+  }
+  function onMouseUp(e: MouseEvent) {
+    const id = e.button === 1 ? tileId(e.target) : null;
+    if (id && id === middleOn) act.openInTab(id);
+    middleOn = null;
+  }
+
   function onContextMenu(e: MouseEvent) {
     const id = tileId(e.target);
     if (id) openTileMenu(e, id);
@@ -423,6 +436,8 @@
     onscroll={onScroll}
     onclick={onClick}
     ondblclick={onDblClick}
+    onmousedown={onMouseDown}
+    onmouseup={onMouseUp}
     oncontextmenu={onContextMenu}
     onpointerdown={(e) => band.down(e)}
     onpointermove={onPointerMove}

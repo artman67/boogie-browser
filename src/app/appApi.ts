@@ -20,7 +20,7 @@ import type { CoreHost } from '../core/contracts';
 import type { AppMethods } from './dispatch';
 import type { ExportJobs } from './exporter';
 import { pngBytesForFile, pngBytesFromBytes, vipsToPng } from './imageTools';
-import { isWebUrl, urlsFromClipboardText } from './links';
+import { isWebUrl, referenceList, urlsFromClipboardText } from './links';
 import type { Windows } from './windows';
 
 export interface AppCtx {
@@ -266,6 +266,18 @@ export function createAppMethods(d: AppApiDeps): AppMethods<AppCtx> {
 
     async openReferenceWindow(_ctx, id, ids) {
       windows.openReference(id, ids);
+    },
+
+    async openViewerWindow(_ctx, id, ids) {
+      windows.openViewer(id, ids);
+    },
+
+    async popInViewer(_ctx, id, ids) {
+      windows.toMain('tabIn', { id, ids: referenceList(id, ids) });
+    },
+
+    async showInMainWindow(_ctx, id) {
+      windows.toMain('reveal', { kind: 'item', id });
     },
 
     // Runs inside the window itself (webUtils in the preload); it can't work over IPC.

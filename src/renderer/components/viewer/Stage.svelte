@@ -4,6 +4,7 @@
   // content (an <img>, a <video>...) is a child that fills a box of the picture's natural size,
   // and the whole box is moved with a single CSS transform, so zooming never re-lays anything out.
   import { onDestroy, untrack, type Snippet } from 'svelte';
+  import { isLive } from './live';
   import { viewer, type Bg, type StageApi } from './state.svelte';
   import {
     FIT_VIEW,
@@ -52,6 +53,7 @@
     ondblclick,
     children,
   }: Props = $props();
+  const live = isLive();
 
   let root = $state<HTMLDivElement>();
   let bw = $state(0);
@@ -120,14 +122,14 @@
   };
 
   $effect(() => {
-    if (!register) return;
+    if (!register || !live()) return;
     viewer.stages.add(api);
     return () => void viewer.stages.delete(api);
   });
   onDestroy(() => clearTimeout(animTimer));
 
   $effect(() => {
-    if (register) viewer.zoom = { scale, atFit: eff.z === 1 };
+    if (register && live()) viewer.zoom = { scale, atFit: eff.z === 1 };
   });
 
   // Wheel needs a non-passive listener: Ctrl+wheel would otherwise zoom the whole page.
@@ -238,8 +240,9 @@
     visibility: hidden;
     transition: filter 120ms ease-out;
   }
+  /* inherit, not visible: inside a hidden tab it must stay hidden too */
   .content.ready {
-    visibility: visible;
+    visibility: inherit;
   }
   .content.anim {
     transition:

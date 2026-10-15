@@ -1,10 +1,11 @@
 <script lang="ts">
   // Mounted once at the App root. Renders nothing unless `ui.viewer` is set, then one of the four
-  // modes. Also owns what they share: the keys, keeping the selection on the item you are looking
+  // modes. The detail view stays mounted while any item tab is open (it keeps the hidden tabs). Also owns what they share: the keys, keeping the selection on the item you are looking
   // at (the inspector follows it), warming the next pictures, and resetting view-only toggles.
   import { onMount, untrack } from 'svelte';
   import { enterMode, focus } from '../../lib/commands.svelte';
   import { selection } from '../../lib/stores/selection.svelte';
+  import { tabs } from '../../lib/stores/tabs.svelte';
   import { ui } from '../../lib/stores/ui.svelte';
   import Compare from './Compare.svelte';
   import Detail from './Detail.svelte';
@@ -39,12 +40,14 @@
 
   let lastId: string | undefined;
   let lastMode: string | undefined;
+  let lastTab: string | null = null;
   $effect(() => {
     const v = ui.viewer;
     if (!v) {
       // Flip, grayscale and rotate last for one viewing only; quick look has no indicator for them.
       untrack(() => {
         lastId = lastMode = undefined;
+        lastTab = null;
         viewer.flip = false;
         viewer.gray = false;
         viewer.rotate = 0;
@@ -55,12 +58,15 @@
     if (v.mode === 'compare') return;
     const id = v.ids[v.index];
     untrack(() => {
+      // Another tab: it brought its own flip, grayscale and rotation (the tabs store set them).
+      const sameTab = tabs.active === lastTab;
+      lastTab = tabs.active;
       if (!id || (id === lastId && v.mode === lastMode)) return;
       // Peeking with Space leaves a multi-selection alone (Esc goes back to it). Anything else
       // selects the item on screen, so the app's item keys (T, F, F2, Shift+D) act on it alone.
       const peek = lastId === undefined && v.mode === 'quicklook' && selection.primary === id;
       if (!peek && !(selection.count === 1 && selection.primary === id)) selection.select(id);
-      if (id !== lastId) viewer.rotate = 0;
+      if (id !== lastId && sameTab && lastId !== undefined) viewer.rotate = 0;
       lastId = id;
       lastMode = v.mode;
     });
@@ -68,10 +74,9 @@
   });
 </script>
 
+{#if tabs.list.length}<Detail />{/if}
 {#if ui.viewer}
-  {#if ui.viewer.mode === 'detail'}
-    <Detail />
-  {:else if ui.viewer.mode === 'quicklook'}
+  {#if ui.viewer.mode === 'quicklook'}
     <QuickLook />
   {:else if ui.viewer.mode === 'compare'}
     <Compare />

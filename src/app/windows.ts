@@ -1,10 +1,10 @@
-// Creates and tracks the app's windows: the main window (remembers where it was) and the
-// floating reference windows. Also the security rules every window gets.
+// Creates and tracks the app's windows: the main window (remembers where it was), tabs popped out
+// into their own windows, and the floating reference windows. Also the security rules every window gets.
 import { BrowserWindow, screen, shell, type Rectangle } from 'electron';
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname, join, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { BoogieEventName } from '../shared/api';
+import type { BoogieEventName, BoogieEvents } from '../shared/api';
 import { isWebUrl, referenceList } from './links';
 
 export interface WindowsOptions {
@@ -112,7 +112,41 @@ export class Windows {
     void this.load(win, 'reference.html', query);
   }
 
+  // ── pop-out windows ──
+
+  /**
+   * A tab popped out of the main window: an ordinary window (the compositor tiles it) with the
+   * whole detail view in it, stepping through `ids`. The page is the main window's, in viewer mode.
+   */
+  openViewer(itemId: string, ids?: string[]): void {
+    const win = new BrowserWindow({
+      width: 1100,
+      height: 850,
+      minWidth: 400,
+      minHeight: 300,
+      frame: false,
+      roundedCorners: false,
+      backgroundColor: BACKGROUND,
+      title: 'Boogie Browser',
+      icon: this.o.iconPath,
+      webPreferences: this.webPreferences(),
+    });
+    this.harden(win);
+    const query: Record<string, string> = { window: 'viewer', item: itemId };
+    const list = referenceList(itemId, ids);
+    if (list.length > 1) query.items = list.join(',');
+    void this.load(win, 'index.html', query);
+  }
+
   // ── events ──
+
+  /** An event for the main window alone, which comes forward (a pop-out window's requests). */
+  toMain<K extends BoogieEventName>(event: K, payload: BoogieEvents[K]): void {
+    const win = this.main;
+    if (!win || win.isDestroyed()) return;
+    this.focusMain();
+    win.webContents.send(`boogie:event:${event}`, payload);
+  }
 
   /** Push a core event to every window. */
   broadcast(event: BoogieEventName, payload: unknown): void {

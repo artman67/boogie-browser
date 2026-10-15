@@ -19,6 +19,8 @@ export const EVENT_NAMES = [
   'status',
   // Sent by the app itself (eagle:// links, the Eagle API's /item links); the core never emits it.
   'reveal',
+  // Sent by the app itself to the main window (a pop-out window's "Put back in the tabs").
+  'tabIn',
 ] as const satisfies readonly BoogieEventName[];
 const _allEventsListed: Exclude<BoogieEventName, (typeof EVENT_NAMES)[number]> extends never
   ? true

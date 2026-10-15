@@ -3,6 +3,7 @@
 // in if it's there, else in its first folder (else All).
 import { items } from './stores/items.svelte';
 import { library } from './stores/library.svelte';
+import { tabs } from './stores/tabs.svelte';
 import { ui } from './stores/ui.svelte';
 import { view } from './stores/view.svelte';
 import type { BoogieEvents } from '../../shared/api';
@@ -12,7 +13,7 @@ export async function revealThing({ kind, id }: BoogieEvents['reveal']): Promise
   // wait for the first view, so starting it doesn't undo what the link asked for.
   await library.ready;
   if (!library.state) return;
-  ui.viewer = null;
+  tabs.show(null); // the item tabs stay open behind the library
   if (kind === 'folder') {
     if (!library.folders.has(id)) return void ui.toast('That folder isn’t in this library');
     return view.setScope({ kind: 'folder', id, includeSubfolders: view.showSubfolderContents });
