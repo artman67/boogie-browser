@@ -67,3 +67,28 @@ describe('view refresh while the library changes', () => {
     expect(queries).toBe(1);
   });
 });
+
+describe('back and forward', () => {
+  it('a jump from a search to a folder goes back to the search, even from the same folder', () => {
+    const folder = { kind: 'folder', id: 'F1', includeSubfolders: true } as const;
+    view.reset('lib');
+    view.setFilter({ keywords: 'sam' });
+    view.showUnfiltered(folder);
+    expect(view.scope).toEqual(folder);
+    expect(view.filter).toEqual({});
+    view.goBack();
+    expect(view.scope).toEqual({ kind: 'all' });
+    expect(view.filter).toEqual({ keywords: 'sam' });
+
+    // Searching inside the folder and jumping to that same folder clears the search, one step.
+    view.setScope(folder);
+    view.setFilter({ keywords: 'alex' });
+    view.showUnfiltered(folder);
+    expect(view.filter).toEqual({});
+    view.goBack();
+    expect(view.scope).toEqual(folder);
+    expect(view.filter).toEqual({ keywords: 'alex' });
+    view.goForward();
+    expect(view.filter).toEqual({});
+  });
+});

@@ -12,6 +12,7 @@ import {
   openSource,
   reveal,
 } from '../../lib/files';
+import { showInFolderMenu } from '../../lib/reveal';
 import { items } from '../../lib/stores/items.svelte';
 import { ui } from '../../lib/stores/ui.svelte';
 import * as act from './actions';
@@ -52,7 +53,8 @@ function itemMenu(id: string): MenuItem[] {
   const outward: MenuItem[] = [
     { label: 'Open in reference window', keys: 'Ctrl O', run: () => act.openReferenceHere(id) },
     { label: 'Open with default app', keys: 'Shift Enter', run: () => openDefault(id) },
-    { label: 'Reveal in folder', run: () => reveal(id) },
+    ...(brief?.isDeleted ? [] : [showInFolderMenu(id, ids)]),
+    { label: 'Show file on disk', run: () => reveal(id) },
     { label: 'Copy', keys: 'Ctrl C', run: () => copyItems(ids) },
     { label: 'Copy file path', run: () => copyPaths(ids) },
     { label: 'Copy link', run: () => copyLink('item', ids) },

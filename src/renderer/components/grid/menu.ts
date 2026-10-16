@@ -10,6 +10,7 @@ import {
   openReference,
   reveal,
 } from '../../lib/files';
+import { showInFolderMenu } from '../../lib/reveal';
 import { items } from '../../lib/stores/items.svelte';
 import { selection } from '../../lib/stores/selection.svelte';
 import { ui } from '../../lib/stores/ui.svelte';
@@ -35,7 +36,7 @@ function buildMenu(id: string): MenuItem[] {
   if (inTrash) {
     return [
       open,
-      { label: 'Reveal in folder', run: () => reveal(id) },
+      { label: 'Show file on disk', run: () => reveal(id) },
       { label: 'Copy file path', run: () => copyPaths(ids) },
       { separator: true },
       edit({ label: 'Restore', run: () => act.restore(ids) }),
@@ -61,7 +62,8 @@ function buildMenu(id: string): MenuItem[] {
     { label: 'Open in a new tab', keys: 'Ctrl Enter', run: () => act.openInTab(id) },
     { label: 'Open in reference window', keys: 'Ctrl O', run: () => openReference(id) },
     { label: 'Open with default app', run: () => openDefault(id) },
-    { label: 'Reveal in folder', run: () => reveal(id) },
+    showInFolderMenu(id, ids),
+    { label: 'Show file on disk', run: () => reveal(id) },
     { label: many ? 'Copy items' : 'Copy', keys: 'Ctrl C', run: () => copyItems(ids) },
     { label: 'Copy file path', run: () => copyPaths(ids) },
     { label: many ? 'Copy links' : 'Copy link', run: () => copyLink('item', ids) },

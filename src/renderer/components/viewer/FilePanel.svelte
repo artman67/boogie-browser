@@ -61,7 +61,7 @@
         >Open with default app</button
       >
       <button type="button" class="btn" onclick={() => void reveal(item.id)}
-        >Reveal in folder</button
+        >Show file on disk</button
       >
     </div>
   </div>
