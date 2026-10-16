@@ -8,6 +8,7 @@ import type {
   ItemBrief,
   QueryRequest,
   QueryResult,
+  ResultSection,
   Scope,
   SortSpec,
 } from '../../../shared/types';
@@ -15,7 +16,7 @@ import type { LibraryIndex, QueryEngine, UrlBuilder } from '../../contracts';
 import { canRenderLocally } from '../../media/formats';
 import { LOCKED_ROWIDS } from '../folders';
 import { changesOf, PaletteCache, SmartMemberCache, type IndexChanges } from './caches';
-import { compileFilter } from './filters';
+import { compileFilter, type CompiledFilter } from './filters';
 import { DEFAULT_SORT, folderSort, isOrderBy, naturalKey, seededHash, sqlOrderExpr } from './sorts';
 import {
   compileSmartFolder,
@@ -56,6 +57,14 @@ interface ScopePlan {
 
 /** Up to this many candidate items, the color search only looks at their swatches. */
 const COLOR_SCOPED_MAX = 15_000;
+/** Scopes whose keyword search can also list matches from the rest of the library. */
+const SPILLS = new Set<Scope['kind']>([
+  'folder',
+  'smartFolder',
+  'tag',
+  'uncategorized',
+  'untagged',
+]);
 
 /** SortSpec plus an optional seed (a RANDOM sort outside the Random scope reshuffles when it changes). */
 type SeededSort = SortSpec & { seed?: number };
@@ -292,12 +301,19 @@ export class SqlQueryEngine implements QueryEngine {
       const members = this.smartMembers(plan.smart, now);
       rows = rows.filter((r) => members.has(r[0]));
     }
-    if (filter.color) {
-      const hits = this.palette.match(
-        filter.color,
-        rows.length <= COLOR_SCOPED_MAX ? new Set(rows.map((r) => r[0])) : null,
-      );
-      rows = rows.filter((r) => hits.has(r[0]));
+    rows = this.colorFiltered(rows, filter.color);
+
+    const own = rows.length;
+    let sections: ResultSection[] | undefined;
+    if (req.elsewhere && SPILLS.has(req.scope.kind) && req.filter.keywords?.trim()) {
+      const more = this.elsewhere(rows, filter, sort, now);
+      if (more) {
+        sections = [
+          { start: 0, kind: 'here' },
+          ...more.sections.map((x) => ({ ...x, start: x.start + rows.length })),
+        ];
+        rows = rows.concat(more.rows);
+      }
     }
 
     const n = rows.length;
@@ -310,12 +326,98 @@ export class SqlQueryEngine implements QueryEngine {
     }
     const applied: SortSpec = { by: sort.by, ascending: sort.ascending };
     return {
-      total: n,
+      total: own,
       ids,
       aspects,
       sort: applied,
       elapsedMs: Math.round((performance.now() - t0) * 10) / 10,
+      ...(sections && { sections }),
     };
+  }
+
+  private colorFiltered(rows: Row[], color: CompiledFilter['color']): Row[] {
+    if (!color) return rows;
+    const hits = this.palette.match(
+      color,
+      rows.length <= COLOR_SCOPED_MAX ? new Set(rows.map((r) => r[0])) : null,
+    );
+    return rows.filter((r) => hits.has(r[0]));
+  }
+
+  /**
+   * The filter's matches in the rest of the library (not in `here`), in the same order, grouped
+   * by folder: each item under the one of its folders that holds the most of these matches (ties
+   * by path), groups biggest first, items in no folder last. Null when there are none.
+   */
+  private elsewhere(
+    here: Row[],
+    filter: CompiledFilter,
+    sort: SeededSort,
+    now: number,
+  ): { rows: Row[]; sections: ResultSection[] } | null {
+    const all: Scope = { kind: 'all' };
+    const where = joinFrags(
+      [this.scopePlan(all, now).where, ...this.unlocked(all), ...filter.where],
+      'AND',
+    );
+    // A folder's manual order means nothing outside it.
+    const order = sort.by === 'MANUAL' ? { ...DEFAULT_SORT } : sort;
+    const inHere = new Set(here.map((r) => r[0]));
+    const rows = this.colorFiltered(
+      this.fetchOrdered(where, order, all, null),
+      filter.color,
+    ).filter((r) => !inHere.has(r[0]));
+    if (!rows.length) return null;
+
+    const pairs = this.prepare(
+      `SELECT f.item_rowid, f.folder_id, fo.path FROM item_folders f JOIN folders fo ON fo.id = f.folder_id
+       WHERE f.item_rowid IN (SELECT value FROM json_each(?))`,
+    )
+      .raw(true)
+      .all(JSON.stringify(rows.map((r) => r[0]))) as [number, string, string][];
+    const foldersOf = new Map<number, string[]>();
+    const hits = new Map<string, number>();
+    const paths = new Map<string, string>();
+    for (const [rowid, folderId, path] of pairs) {
+      const list = foldersOf.get(rowid);
+      if (list) list.push(folderId);
+      else foldersOf.set(rowid, [folderId]);
+      hits.set(folderId, (hits.get(folderId) ?? 0) + 1);
+      paths.set(folderId, path);
+    }
+    const better = (a: string, b: string): boolean =>
+      hits.get(a)! !== hits.get(b)! ? hits.get(a)! > hits.get(b)! : paths.get(a)! < paths.get(b)!;
+
+    const groups = new Map<string, Row[]>();
+    const loose: Row[] = [];
+    for (const r of rows) {
+      const fs = foldersOf.get(r[0]);
+      if (!fs) {
+        loose.push(r);
+        continue;
+      }
+      let best = fs[0];
+      for (const f of fs) if (better(f, best)) best = f;
+      const g = groups.get(best);
+      if (g) g.push(r);
+      else groups.set(best, [r]);
+    }
+    const keys = [...groups.keys()].sort((a, b) => {
+      const d = groups.get(b)!.length - groups.get(a)!.length;
+      return d || (paths.get(a)! < paths.get(b)! ? -1 : paths.get(a)! > paths.get(b)! ? 1 : 0);
+    });
+
+    const out: Row[] = [];
+    const sections: ResultSection[] = [];
+    for (const k of keys) {
+      sections.push({ start: out.length, kind: 'folder', folderId: k });
+      out.push(...groups.get(k)!);
+    }
+    if (loose.length) {
+      sections.push({ start: out.length, kind: 'none' });
+      out.push(...loose);
+    }
+    return { rows: out, sections };
   }
 
   /** Rows [rowid, id, width, height] in display order. Ties always break by id, ascending. */

@@ -243,7 +243,9 @@
       <span class="res">
         {#if scopeTotal !== null}<b>{view.result.total.toLocaleString()}</b> of {scopeTotal.toLocaleString()}{:else}<b
             >{view.result.total.toLocaleString()}</b
-          > results{/if}
+          > results{/if}{#if view.result.sections}, {(
+            view.result.ids.length - view.result.total
+          ).toLocaleString()} elsewhere{/if}
       </span>
     {/if}
     <span class="grow"></span>

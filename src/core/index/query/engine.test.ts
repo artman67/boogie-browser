@@ -724,6 +724,66 @@ describe('result shape', () => {
   });
 });
 
+describe('a search that also looks outside the folder', () => {
+  const A = 'FA00000000001';
+  const B = 'FB00000000001';
+  const C = 'FC00000000001';
+  function setup() {
+    const s = new Fixture(makeRoot([folder(A, 'Alex'), folder(B, 'Books'), folder(C, 'Cards')]));
+    s.add({ name: 'sam here', folders: [A] });
+    s.add({ name: 'sam b1', folders: [B] });
+    s.add({ name: 'sam loose' });
+    s.add({ name: 'sam b2', folders: [B] });
+    s.add({ name: 'sam c1', folders: [C] });
+    s.add({ name: 'sam in both', folders: [C, B] }); // filed with the bigger group, B
+    s.add({ name: 'sam trashed', folders: [B], isDeleted: true });
+    s.add({ name: 'other', folders: [B] });
+    return s.engine();
+  }
+  const inA: Scope = { kind: 'folder', id: A, includeSubfolders: true };
+
+  it('lists the folder’s own matches first, then the rest grouped by folder, biggest first', () => {
+    const engine = setup();
+    const res = engine.query({
+      scope: inA,
+      filter: { keywords: 'sam' },
+      sort: null,
+      elsewhere: true,
+    });
+    expect(engine.briefs(res.ids).map((b) => b.name)).toEqual([
+      'sam here',
+      'sam in both',
+      'sam b2',
+      'sam b1',
+      'sam c1',
+      'sam loose',
+    ]);
+    expect(res.total).toBe(1); // the folder's own matches
+    expect(res.aspects).toHaveLength(6);
+    expect(res.sections).toEqual([
+      { start: 0, kind: 'here' },
+      { start: 1, kind: 'folder', folderId: B },
+      { start: 4, kind: 'folder', folderId: C },
+      { start: 5, kind: 'none' },
+    ]);
+  });
+
+  it('stays one plain list unless it is a keyword search in a place it can look beyond', () => {
+    const engine = setup();
+    const q = (scope: Scope, filter: FilterSpec, elsewhere = true) =>
+      engine.query({ scope, filter, sort: null, elsewhere });
+    expect(q(inA, { keywords: 'sam' }, false).sections).toBeUndefined();
+    expect(q(all, { keywords: 'sam' }).sections).toBeUndefined();
+    expect(q(inA, { rating: [0] }).sections).toBeUndefined();
+    expect(q(inA, { keywords: 'here' }).sections).toBeUndefined(); // nothing elsewhere
+    // Nothing here, something elsewhere: the empty "here" section still leads.
+    expect(q(inA, { keywords: 'b1' }).sections).toEqual([
+      { start: 0, kind: 'here' },
+      { start: 0, kind: 'folder', folderId: B },
+    ]);
+  });
+});
+
 describe('briefs and items', () => {
   it('briefs keep the order asked for and skip unknown ids', () => {
     const eng = fx.engine();

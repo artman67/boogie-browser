@@ -220,6 +220,7 @@ class ViewStore {
         scope: $state.snapshot(this.scope) as Scope,
         filter: $state.snapshot(this.filter) as FilterSpec,
         sort: this.sort ? ($state.snapshot(this.sort) as SortSpec) : null,
+        elsewhere: true,
       });
       if (seq !== this.seq) return;
       this.result = res;

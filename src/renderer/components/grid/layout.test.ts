@@ -269,3 +269,34 @@ describe('layouts taller than Chromium allows', () => {
     }
   });
 });
+
+describe('sections', () => {
+  // A 3-item section, an empty one (heading only), then 40 items.
+  const sections = [
+    { start: 0, headerH: 30 },
+    { start: 3, headerH: 50 },
+    { start: 3, headerH: 30 },
+  ];
+  const A = aspects(43, 7);
+
+  for (const kind of ['justified', 'masonry', 'grid', 'list'] as const) {
+    it(`${kind}: each section starts below its heading and the one before, in order`, () => {
+      const L = computeLayout(A, { ...base, kind, width: 1300, thumbSize: 190, sections });
+      let bottom = 0;
+      for (let i = 0; i < 3; i++) bottom = Math.max(bottom, L.y[i] + L.h[i] + L.captionH);
+      expect(L.y[0]).toBe(14 + 30);
+      expect(Array.from(L.sectionY)).toEqual([14, bottom + 24, bottom + 24 + 50 + 24]);
+      for (let i = 1; i < L.count; i++) expect(L.y[i]).toBeGreaterThanOrEqual(L.y[i - 1]);
+      // The third section's tiles sit under its heading, and its first one begins a row.
+      for (let i = 3; i < L.count; i++) expect(L.y[i]).toBeGreaterThanOrEqual(L.sectionY[2] + 30);
+      expect(L.x[3]).toBe(18);
+      expect(L.total).toBeGreaterThan(L.y[42] + L.h[42]);
+      if (kind !== 'masonry') {
+        // Rows never mix sections, and moving down off the first section skips the empty one.
+        expect(L.rowStart[0]).toBe(0);
+        expect(Array.from(L.rowStart)).toContain(3);
+        expect(moveVertical(L, 2, 1)).toBeGreaterThanOrEqual(3);
+      }
+    });
+  }
+});
