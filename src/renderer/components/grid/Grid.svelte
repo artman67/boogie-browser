@@ -308,15 +308,16 @@
     reveal(next);
   }
 
-  // A link asked to show an item: select it and scroll to it once it's in the result.
+  // Something asked to show items: select them and scroll to the first once it's in the result.
   $effect(() => {
-    const id = ui.revealId;
-    const i = id ? ids.indexOf(id) : -1;
-    if (i < 0 || !scroller) return;
+    const want = ui.revealIds;
+    if (!want || !scroller) return;
+    const found = want.filter((id) => ids.includes(id));
+    if (!found.length) return;
     untrack(() => {
-      ui.revealId = null;
-      selection.select(id!, 'replace');
-      reveal(i);
+      ui.revealIds = null;
+      selection.setMany(found, found[0]);
+      reveal(ids.indexOf(found[0]));
     });
   });
 

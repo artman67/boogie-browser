@@ -4,12 +4,14 @@
   // hosts the filter popovers and registers the filter shortcuts.
   import { onMount, untrack } from 'svelte';
   import X from '@lucide/svelte/icons/x';
+  import ChevronLeft from '@lucide/svelte/icons/chevron-left';
   import Plus from '@lucide/svelte/icons/plus';
   import BookmarkPlus from '@lucide/svelte/icons/bookmark-plus';
   import Lock from '@lucide/svelte/icons/lock';
   import LockOpen from '@lucide/svelte/icons/lock-open';
   import { registerCommands, type CommandContext } from '../../lib/commands.svelte';
   import { readOnlyTip } from '../../lib/edit';
+  import { quoted } from '../../lib/format';
   import { library } from '../../lib/stores/library.svelte';
   import { ui } from '../../lib/stores/ui.svelte';
   import { view } from '../../lib/stores/view.svelte';
@@ -35,6 +37,8 @@
     }),
   );
   const visible = $derived(view.filtered || !!filterUi.open);
+  // You jumped from a search to where an item lives: the bar offers the way back to the results.
+  const backTo = $derived(view.filter.keywords ? undefined : view.back.at(-1)?.filter.keywords);
 
   // The scope's size without any filter, from the counts the library already keeps.
   const scopeTotal = $derived.by<number | null>(() => {
@@ -267,6 +271,12 @@
       <button class="clear" onclick={clearAll}>Clear all</button>
     {/if}
   </div>
+{:else if backTo}
+  <div class="filt">
+    <button class="backto" title="Back (Alt+Left)" onclick={() => view.goBack()}
+      ><ChevronLeft size={14} /><span>Back to results for {quoted(backTo)}</span></button
+    >
+  </div>
 {/if}
 
 {#if filterUi.open}
@@ -286,6 +296,26 @@
 {/if}
 
 <style>
+  .backto {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    min-width: 0;
+    max-width: 100%;
+    height: 24px;
+    padding: 0 10px 0 6px;
+    border-radius: 12px;
+    background: var(--chip);
+    color: var(--tx);
+    white-space: nowrap;
+  }
+  .backto span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .backto:hover {
+    background: var(--chip-line);
+  }
   .filt {
     display: flex;
     flex-wrap: wrap;

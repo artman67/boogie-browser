@@ -45,8 +45,11 @@ class UIStore {
   }
   dialog = $state<{ kind: DialogKind; props?: Record<string, unknown> } | null>(null);
   toasts = $state<Toast[]>([]);
-  /** An item to select and scroll to once the grid's result has it (a link was opened). */
-  revealId = $state<string | null>(null);
+  /**
+   * Items to select and scroll to once the grid's result has them (a link was opened, or you
+   * asked to see an item in its folder). The first one found is the primary.
+   */
+  revealIds = $state<string[] | null>(null);
   private nextToast = 1;
 
   /**

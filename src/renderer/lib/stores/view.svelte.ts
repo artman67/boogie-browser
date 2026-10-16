@@ -12,6 +12,12 @@ function sameScope(a: Scope, b: Scope): boolean {
   return JSON.stringify(a) === JSON.stringify(b);
 }
 
+/** A place in the back/forward history: where you were and what you had searched for there. */
+export interface Visit {
+  scope: Scope;
+  filter: FilterSpec;
+}
+
 class ViewStore {
   scope = $state<Scope>({ kind: 'all' });
   filter = $state<FilterSpec>({});
@@ -36,8 +42,8 @@ class ViewStore {
   /** A checkerboard behind thumbnails, to see transparency. Kept on this computer. */
   checker = $state(readJSON<boolean>('gridChecker', false) === true);
 
-  back = $state.raw<Scope[]>([]);
-  forward = $state.raw<Scope[]>([]);
+  back = $state.raw<Visit[]>([]);
+  forward = $state.raw<Visit[]>([]);
 
   /** True when the filter has anything in it. */
   filtered = $derived(
@@ -93,10 +99,37 @@ class ViewStore {
 
   setScope(scope: Scope, opts: { keepFilter?: boolean } = {}): void {
     if (sameScope(scope, this.scope)) return;
-    this.back = [...this.back, $state.snapshot(this.scope) as Scope].slice(-50);
+    this.back = [...this.back, this.here()].slice(-50);
     this.forward = [];
     this.scope = scope;
     if (!opts.keepFilter) this.filter = {};
+    this.sort = null;
+    this.remember();
+    this.run(0);
+  }
+
+  /**
+   * Go to `scope` with nothing filtered, even if that is where you already are (then the search
+   * you were in is a step back too, so Back returns to the results).
+   */
+  showUnfiltered(scope: Scope): void {
+    if (!sameScope(scope, this.scope)) return this.setScope(scope);
+    if (!this.filtered) return;
+    this.back = [...this.back, this.here()].slice(-50);
+    this.forward = [];
+    this.clearFilter();
+  }
+
+  private here(): Visit {
+    return {
+      scope: $state.snapshot(this.scope) as Scope,
+      filter: $state.snapshot(this.filter) as FilterSpec,
+    };
+  }
+
+  private visit(v: Visit): void {
+    this.scope = v.scope;
+    this.filter = v.filter;
     this.sort = null;
     this.remember();
     this.run(0);
@@ -109,21 +142,17 @@ class ViewStore {
   goBack(): void {
     const prev = this.back.at(-1);
     if (!prev) return;
-    this.forward = [$state.snapshot(this.scope) as Scope, ...this.forward];
+    this.forward = [this.here(), ...this.forward];
     this.back = this.back.slice(0, -1);
-    this.scope = prev;
-    this.remember();
-    this.run(0);
+    this.visit(prev);
   }
 
   goForward(): void {
     const next = this.forward[0];
     if (!next) return;
-    this.back = [...this.back, $state.snapshot(this.scope) as Scope];
+    this.back = [...this.back, this.here()];
     this.forward = this.forward.slice(1);
-    this.scope = next;
-    this.remember();
-    this.run(0);
+    this.visit(next);
   }
 
   setFilter(patch: Partial<FilterSpec>): void {
