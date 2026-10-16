@@ -369,15 +369,32 @@ export interface QueryRequest {
   scope: Scope;
   filter: FilterSpec;
   sort: SortSpec | null; // null = the scope's own sort (folder orderBy, else IMPORT desc)
+  /**
+   * A keyword search inside a folder, smart folder, tag, Uncategorized or Untagged also lists the
+   * matches from the rest of the library, after the scope's own, grouped by folder (see sections).
+   */
+  elsewhere?: boolean;
+}
+
+/** A run of QueryResult.ids under one heading. */
+export interface ResultSection {
+  /** Index in ids of the first item; the section runs to the next section's start. */
+  start: number;
+  /** 'here': the scope's own matches. 'folder': matches elsewhere, filed under folderId. 'none': elsewhere, in no folder. */
+  kind: 'here' | 'folder' | 'none';
+  folderId?: string;
 }
 
 export interface QueryResult {
+  /** Matches in the scope itself: ids.length, less the matches elsewhere when there are sections. */
   total: number;
   ids: string[]; // in display order
   /** width / height per id, same order; 1 when unknown. Enough to lay out the whole grid. */
   aspects: number[];
   sort: SortSpec; // the sort actually applied
   elapsedMs: number;
+  /** Only when the request asked for `elsewhere` and something outside the scope matched. */
+  sections?: ResultSection[];
 }
 
 // ───────────────────────── Mutations ─────────────────────────

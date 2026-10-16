@@ -22,6 +22,12 @@ export interface LayoutOptions {
   /** Px reserved under each thumbnail for the name and meta lines (0 when both are off). */
   captionH?: number;
   listRowH?: number;
+  /**
+   * Items in runs, each under a heading `headerH` px tall: a run starts a new row (masonry: below
+   * every column) and `sectionGap` px separate one run's last row from the next heading.
+   */
+  sections?: { start: number; headerH: number }[];
+  sectionGap?: number;
 }
 
 export interface Layout {
@@ -43,6 +49,8 @@ export interface Layout {
   maxTileH: number;
   /** Full content height, padding included. */
   total: number;
+  /** Top of each section's heading, same order as LayoutOptions.sections. Empty without them. */
+  sectionY: Float64Array;
 }
 
 /** Height reserved under a thumbnail for the name and meta lines. */
@@ -84,7 +92,9 @@ export function computeLayout(aspects: ArrayLike<number>, o: LayoutOptions): Lay
     cols: 1,
     maxTileH: 0,
     total: padTop + padBottom,
+    sectionY: new Float64Array(0),
   };
+  if (o.sections?.length) return stackSections(L, aspects, o, padTop, padBottom);
   if (n === 0) return L;
 
   if (o.kind === 'masonry')
@@ -103,6 +113,53 @@ export function computeLayout(aspects: ArrayLike<number>, o: LayoutOptions): Lay
       padBottom,
       o.listRowH ?? 44,
     );
+  return L;
+}
+
+/**
+ * Each section laid out on its own, then stacked: y stays non-decreasing, rows and row starts
+ * continue across sections (masonry lanes are columns, the same in every section).
+ */
+function stackSections(
+  L: Layout,
+  aspects: ArrayLike<number>,
+  o: LayoutOptions,
+  padTop: number,
+  padBottom: number,
+): Layout {
+  const secs = o.sections!;
+  const gapBelow = o.sectionGap ?? 24;
+  const starts: number[] = [];
+  L.sectionY = new Float64Array(secs.length);
+  let y = padTop;
+  for (let s = 0; s < secs.length; s++) {
+    if (s > 0) y += gapBelow;
+    L.sectionY[s] = y;
+    y += secs[s].headerH;
+    const a = secs[s].start;
+    const b = s + 1 < secs.length ? secs[s + 1].start : L.count;
+    const sub = computeLayout(Array.prototype.slice.call(aspects, a, b) as number[], {
+      ...o,
+      sections: undefined,
+      padTop: 0,
+      padBottom: 0,
+    });
+    for (let k = 0; k < sub.count; k++) {
+      L.x[a + k] = sub.x[k];
+      L.y[a + k] = y + sub.y[k];
+      L.w[a + k] = sub.w[k];
+      L.h[a + k] = sub.h[k];
+      L.lane[a + k] = L.kind === 'masonry' ? sub.lane[k] : L.rows + sub.lane[k];
+    }
+    for (let r = 0; r < sub.rows; r++) starts.push(a + sub.rowStart[r]);
+    L.rows += sub.rows;
+    L.cols = Math.max(L.cols, sub.cols);
+    L.maxTileH = Math.max(L.maxTileH, sub.maxTileH);
+    y += sub.total;
+  }
+  starts.push(L.count);
+  if (L.kind !== 'masonry') L.rowStart = Int32Array.from(starts);
+  L.total = y + padBottom;
   return L;
 }
 

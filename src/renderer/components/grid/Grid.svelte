@@ -33,6 +33,7 @@
   import ListRow from './ListRow.svelte';
   import { openTileMenu } from './menu';
   import { RubberBand } from './rubberBand.svelte';
+  import SectionHead, { DIVIDER_H, HEAD_H } from './SectionHead.svelte';
   import SelectionBar from './SelectionBar.svelte';
   import Subfolders from './Subfolders.svelte';
   import Tile from './Tile.svelte';
@@ -60,6 +61,8 @@
   const isList = $derived(kind === 'list');
   const listLevel = $derived(width >= 700 ? 0 : width >= 640 ? 1 : 2);
   const ids = $derived(view.result?.ids ?? EMPTY_IDS);
+  /** A search that also found matches outside the scope: the scope's own, then each folder's. */
+  const sections = $derived(view.result?.sections);
   const folderChildren = $derived(
     view.scope.kind === 'folder' ? (library.folder(view.scope.id)?.node.children ?? []) : [],
   );
@@ -80,6 +83,11 @@
       padTop: isList ? 0 : 14,
       padBottom: isList ? 16 : 64, // room for the selection bar
       listRowH: 44,
+      // The first section from elsewhere also carries the "Elsewhere in the library" divider.
+      sections: sections?.map((s, k) => ({
+        start: s.start,
+        headerH: HEAD_H + (k === 1 ? DIVIDER_H : 0),
+      })),
     }),
   );
 
@@ -101,6 +109,20 @@
     const out: number[] = [];
     for (let i = lo; i < hi; i++) out.push(i);
     return out;
+  });
+
+  const heads = $derived.by(() => {
+    if (!sections) return [];
+    const top = viewTop - origin - viewH;
+    const bottom = viewTop - origin + 2 * viewH;
+    return sections
+      .map((s, k) => ({
+        s,
+        k,
+        y: layout.sectionY[k],
+        count: (sections[k + 1]?.start ?? ids.length) - s.start,
+      }))
+      .filter((h) => h.y + HEAD_H + DIVIDER_H > top && h.y < bottom);
   });
 
   $effect(() => {
@@ -462,6 +484,14 @@
         bind:this={spacer}
         style="height: {scale.spacerH}px"
       >
+        {#each heads as h (h.k)}
+          <SectionHead
+            section={h.s}
+            count={h.count}
+            divider={h.k === 1 ? ids.length - h.s.start : null}
+            y={h.y - shift}
+          />
+        {/each}
         {#each windowIdx as i (ids[i])}
           {#if isList}
             <ListRow

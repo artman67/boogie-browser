@@ -33,16 +33,19 @@ export class GridDrop {
   over(e: DragEvent): void {
     const scroller = this.g.scroller();
     if (!dragHasPayload(e) || !scroller) return;
-    const own = !!ownDragIds();
-    const reorder = own && view.scope.kind === 'folder';
-    if (own && !reorder) return; // dropping our own items on a non-folder view does nothing
+    const dragged = ownDragIds();
+    const own = !!dragged;
+    const reorder = own && view.scope.kind === 'folder' && this.allHere(dragged);
+    // Dropping our own items on a non-folder view, or items found elsewhere, does nothing.
+    if (own && !reorder) return;
     e.preventDefault(); // accept the drop even when read-only: the drop handler says why nothing happened
     if (e.dataTransfer) e.dataTransfer.dropEffect = reorder ? 'move' : 'copy';
     this.active = !own && !library.readOnly;
     const spacer = this.g.spacer();
     if (own && spacer && !library.readOnly) {
       const p = contentPoint(spacer, e.clientX, e.clientY, this.g.shift());
-      this.bar = dropTarget(this.g.layout(), p.x, p.y);
+      const bar = dropTarget(this.g.layout(), p.x, p.y);
+      this.bar = bar && bar.index <= this.hereEnd() ? bar : null; // only among the folder's own items
     } else this.bar = null;
     // Scroll while dragging near the top or bottom edge.
     const r = scroller.getBoundingClientRect();
@@ -84,6 +87,19 @@ export class GridDrop {
     } catch (err) {
       fail(err);
     }
+  }
+
+  /** Where the scope's own items end: a search can list matches from elsewhere after them. */
+  private hereEnd(): number {
+    return view.result?.sections?.[1]?.start ?? Infinity;
+  }
+
+  private allHere(ids: string[] | null): boolean {
+    if (!ids || !view.result?.sections) return true;
+    const all = this.g.ids();
+    const moving = new Set(ids);
+    for (let k = this.hereEnd(); k < all.length; k++) if (moving.has(all[k])) return false;
+    return true;
   }
 
   /**
