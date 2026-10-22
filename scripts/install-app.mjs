@@ -3,6 +3,7 @@
 //   dist/linux-unpacked  ->  ~/.local/opt/boogie-browser
 //   a launcher entry     ->  ~/.local/share/applications/boogie-browser.desktop
 //   the icon             ->  ~/.local/share/icons/hicolor/512x512/apps/boogie-browser.png
+//   the `boogie` command ->  ~/.local/bin/boogie (agents use it when their MCP connection is down)
 // Run `npm run app:dist` first (or `npm run app:install`, which does both). Running it again updates
 // the install. It does NOT make Boogie the default handler for eagle:// links (Eagle under Wine may own those).
 // Close Boogie Browser first if it is running: a running copy may fail to load pieces of the deleted old one.
@@ -17,6 +18,7 @@ import {
   rmSync,
   writeFileSync,
   copyFileSync,
+  chmodSync,
 } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
@@ -81,8 +83,22 @@ spawnSync('gtk-update-icon-cache', ['-f', '-t', join(home, '.local/share/icons/h
   stdio: 'ignore',
 });
 
+// `boogie` runs the CLI with the app's own Electron as Node, so it needs no system Node.
+const bin = join(home, '.local/bin');
+const q = (s) => `'${s.replaceAll("'", `'\\''`)}'`;
+mkdirSync(bin, { recursive: true });
+writeFileSync(
+  join(bin, 'boogie'),
+  `#!/bin/sh
+# Boogie Browser's tools for agents. Written by boogie-browser/scripts/install-app.mjs.
+BOOGIE_APP=${q(exec)} ELECTRON_RUN_AS_NODE=1 exec ${q(exec)} ${q(join(dest, 'resources/boogie-cli.mjs'))} "$@"
+`,
+);
+chmodSync(join(bin, 'boogie'), 0o755);
+
 console.log(`Installed Boogie Browser to ${dest}`);
 console.log(`Launcher: ${join(applications, 'boogie-browser.desktop')}`);
+console.log(`Agent command: ${join(bin, 'boogie')}`);
 console.log(
   'To open eagle:// links with it: xdg-mime default boogie-browser.desktop x-scheme-handler/eagle',
 );

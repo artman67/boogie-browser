@@ -71,6 +71,21 @@ Agents name the library on every call and work on it directly, whether or not th
 shows it, so switching libraries in the window never redirects an agent's work. Agents can't
 change what the window shows.
 
+The app doesn't have to be open. `npm run app:install` also installs a `boogie` command
+(`~/.local/bin/boogie`) that calls the same tools from a shell:
+
+```sh
+boogie                                   # rules for agents and the tool list
+boogie help search_items                 # one tool's arguments
+boogie search_items library=Sketches query=sketch limit=5
+boogie add_tags library=Sketches item_ids='["ID1","ID2"]' tags=figure --as my-agent
+```
+
+If Boogie isn't running, `boogie` starts it headless (`boogie-browser --headless`): no window, and
+only the MCP server, so it never takes Eagle's ports. Opening the app normally while it runs shows
+the window in that same process. A headless app with no window quits after 30 minutes without
+agent calls (unless a job is running). Turning the MCP server off in Settings also stops `boogie`.
+
 ## Tests
 
 ```sh

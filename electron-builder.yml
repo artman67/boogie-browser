@@ -18,6 +18,9 @@ asarUnpack:
 extraResources:
   - from: resources/icon.png
     to: icon.png
+  # The `boogie` command for agents (scripts/install-app.mjs puts it on PATH).
+  - from: scripts/boogie-cli.mjs
+    to: boogie-cli.mjs
 # better-sqlite3 13 is Node-API: the same prebuilt binary works in Electron, no rebuild needed.
 npmRebuild: false
 # Use the Electron already in node_modules instead of downloading one.

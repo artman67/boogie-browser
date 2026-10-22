@@ -53,7 +53,7 @@ function send(
 
 export async function startMcpServer(
   host: CoreHost,
-  opts: { port: number; tokenFile: string; bind?: string },
+  opts: { port: number; tokenFile: string; bind?: string; onRequest?: () => void },
 ): Promise<McpHandle> {
   const tokens = new TokenStore(opts.tokenFile);
   tokens.current(); // create the file now so `claude mcp add` can be run before the first request
@@ -104,6 +104,7 @@ export async function startMcpServer(
         { 'www-authenticate': 'Bearer realm="boogie-browser"' },
       );
     }
+    opts.onRequest?.();
     serve(req, res).catch((e: unknown) => failed(res, e));
   }
 

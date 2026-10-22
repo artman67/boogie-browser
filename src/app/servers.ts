@@ -27,7 +27,7 @@ export interface ServerStarters {
   ): Promise<CompatServer>;
   startMcpServer(
     host: CoreHost,
-    opts: { port: number; tokenFile: string; bind?: string },
+    opts: { port: number; tokenFile: string; bind?: string; onRequest?: () => void },
   ): Promise<McpServer>;
 }
 
@@ -69,8 +69,16 @@ export class Servers {
       compatPorts?: { apiPort?: number; extPort?: number };
       /** The app brings the linked item or folder into view. */
       onOpen?: (t: OpenLink) => void;
+      /** Every authorized MCP request (the headless app quits after a while without any). */
+      onMcpRequest?: () => void;
     } = {},
   ) {}
+
+  /**
+   * Run only the MCP server. The headless app sets this: with no window, nothing should take
+   * Eagle's ports or accept browser-extension saves the user can't see. Call sync() after changing it.
+   */
+  mcpOnly = false;
 
   private get retryMs(): number {
     return this.o.retryMs ?? RETRY_MS;
@@ -99,7 +107,7 @@ export class Servers {
     const settings = await this.host.api.getSettings();
 
     // Eagle-compatible API + extension server
-    if (settings.eagleCompatApi) {
+    if (settings.eagleCompatApi && !this.mcpOnly) {
       // A half-bound server (one port busy) is restarted so the busy one gets another chance.
       if (this.compat && (this.compat.apiPort === null || this.compat.extPort === null))
         await this.stopCompat();
@@ -131,6 +139,7 @@ export class Servers {
           const server = await this.starters.startMcpServer(this.host, {
             port,
             tokenFile: join(this.host.paths.config, 'api-token'),
+            ...(this.o.onMcpRequest ? { onRequest: this.o.onMcpRequest } : {}),
           });
           this.mcp = { server, port, error: null };
         } catch (e) {
