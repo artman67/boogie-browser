@@ -35,7 +35,33 @@ export const LAYOUTS: { id: AppSettings['layout']; label: string }[] = [
   { id: 'list', label: 'List' },
 ];
 
+/** The thumbnail layout "Icons" uses: the app-wide layout, unless that is the list. */
+export const iconsLayout = (): AppSettings['layout'] =>
+  view.layout === 'list' ? 'justified' : view.layout;
+
+/**
+ * The layout on screen. Each folder remembers Icons or Details on its own; one never set opens
+ * in Details if it holds only subfolders (like a file manager), else in the app-wide layout.
+ */
+export function shownLayout(): AppSettings['layout'] {
+  const s = view.scope;
+  if (s.kind !== 'folder') return view.layout;
+  let mode = view.folderViews[s.id];
+  if (!mode) {
+    const onlyFolders =
+      !!library.folder(s.id)?.node.children.length && library.counts?.folders[s.id]?.own === 0;
+    if (!onlyFolders) return view.layout;
+    mode = 'details';
+  }
+  return mode === 'details' ? 'list' : iconsLayout();
+}
+
+/** In a folder, picking a layout is remembered for that folder; a thumbnail layout also becomes the app-wide one. */
 export function setLayout(layout: AppSettings['layout']): void {
+  if (view.scope.kind === 'folder') {
+    view.setFolderView(view.scope.id, layout === 'list' ? 'details' : 'icons');
+    if (layout === 'list') return;
+  }
   view.layout = layout;
   save({ layout });
 }

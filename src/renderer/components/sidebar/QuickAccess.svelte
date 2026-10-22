@@ -30,7 +30,7 @@
             name: f.name,
             color: f.iconColor,
             icon: f.icon,
-            count: library.counts?.folders[f.id]?.[view.showSubfolderContents ? 'deep' : 'own'],
+            count: library.counts?.folders[f.id]?.deep,
           });
       } else if (e.type === 'smartFolder') {
         const f = library.smartFolders.get(e.id);

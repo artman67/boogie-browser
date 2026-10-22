@@ -6,7 +6,7 @@
   import { on } from '../../lib/api';
   import { focus } from '../../lib/commands.svelte';
   import { canPlayVideo, fileKind } from '../../lib/fileKinds';
-  import { setThumbSize } from '../../lib/prefs';
+  import { setThumbSize, shownLayout } from '../../lib/prefs';
   import { items } from '../../lib/stores/items.svelte';
   import { library } from '../../lib/stores/library.svelte';
   import { selection } from '../../lib/stores/selection.svelte';
@@ -16,6 +16,7 @@
   import * as act from './actions';
   import { registerGridCommands, type Move } from './commands';
   import EmptyState from './EmptyState.svelte';
+  import FolderRows from './FolderRows.svelte';
   import { GridDrop } from './drop.svelte';
   import {
     captionHeight,
@@ -57,7 +58,7 @@
   let scrollTop = $state(0);
   let stripH = $state(0);
 
-  const kind = $derived(view.layout);
+  const kind = $derived(shownLayout());
   const isList = $derived(kind === 'list');
   const listLevel = $derived(width >= 700 ? 0 : width >= 640 ? 1 : 2);
   const ids = $derived(view.result?.ids ?? EMPTY_IDS);
@@ -68,6 +69,10 @@
   );
   const hasStrip = $derived(folderChildren.length > 0);
   const empty = $derived(!library.state || ids.length === 0);
+  /** A folder holding only folders: its subfolders are the whole view, nothing to say below them. */
+  const onlyFolders = $derived(
+    empty && hasStrip && !!view.result && !view.filtered && !view.error && !view.partial,
+  );
   /** Distance from the top of the scroller to the first tile row. */
   const origin = $derived((hasStrip ? stripH : 0) + (isList ? LIST_HEAD : 0));
 
@@ -471,12 +476,17 @@
     ondragstart={onDragStart}
     onfocusin={() => (focus.region = 'grid')}
   >
+    {#if isList && (!empty || hasStrip)}<ListHeader />{/if}
     {#if hasStrip}
-      <div bind:offsetHeight={stripH}><Subfolders folders={folderChildren} /></div>
+      <div bind:offsetHeight={stripH}>
+        {#if isList}<FolderRows folders={folderChildren} />{:else}<Subfolders
+            folders={folderChildren}
+            items={!empty}
+          />{/if}
+      </div>
     {/if}
-    {#if isList && !empty}<ListHeader />{/if}
     {#if empty}
-      <EmptyState />
+      {#if !onlyFolders}<EmptyState />{/if}
     {:else}
       <div
         class="spacer"

@@ -5,6 +5,7 @@ import { importFiles, importFolder, pasteFromClipboard } from '../../lib/files';
 import {
   LAYOUTS,
   setLayout,
+  shownLayout,
   toggleChecker,
   toggleMeta,
   toggleNames,
@@ -20,7 +21,7 @@ export function viewMenu(): MenuItem[] {
   return [
     ...LAYOUTS.map((l) => ({
       label: l.label,
-      checked: view.layout === l.id,
+      checked: shownLayout() === l.id,
       run: () => setLayout(l.id),
     })),
     { separator: true },

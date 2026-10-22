@@ -12,7 +12,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   thumbSize: 190,
   showNames: true,
   showMeta: true,
-  showSubfolderContents: true,
+  showSubfolderContents: false,
   doubleClickAction: 'detail',
   eagleCompatApi: true,
   mcpEnabled: true,

@@ -9,6 +9,8 @@
   import ChevronRight from '@lucide/svelte/icons/chevron-right';
   import Funnel from '@lucide/svelte/icons/funnel';
   import ImageIcon from '@lucide/svelte/icons/image';
+  import LayoutGrid from '@lucide/svelte/icons/layout-grid';
+  import List from '@lucide/svelte/icons/list';
   import PanelLeft from '@lucide/svelte/icons/panel-left';
   import PanelRight from '@lucide/svelte/icons/panel-right';
   import Pipette from '@lucide/svelte/icons/pipette';
@@ -17,7 +19,14 @@
   import Settings from '@lucide/svelte/icons/settings';
   import { openMenuBelow } from '../../lib/contextMenu.svelte';
   import { readOnlyTip } from '../../lib/edit';
-  import { setThumbSize, ZOOM_MAX, ZOOM_MIN } from '../../lib/prefs';
+  import {
+    iconsLayout,
+    setLayout,
+    setThumbSize,
+    shownLayout,
+    ZOOM_MAX,
+    ZOOM_MIN,
+  } from '../../lib/prefs';
   import { sortLabel } from '../../lib/sorts';
   import { library } from '../../lib/stores/library.svelte';
   import { ui } from '../../lib/stores/ui.svelte';
@@ -34,6 +43,8 @@
   const count = $derived(view.result ? view.result.total.toLocaleString() : '');
   // Before a library is open there is nothing to sort, filter, zoom or add to.
   const noLib = $derived(!library.state);
+  const details = $derived(shownLayout() === 'list');
+  const remembered = $derived(view.scope.kind === 'folder' ? ', kept for this folder' : '');
 </script>
 
 <div class="tb" role="toolbar" aria-label="Toolbar">
@@ -86,6 +97,23 @@
   {/if}
 
   <div class="sp"></div>
+
+  <div class="seg" role="group" aria-label="View">
+    <button
+      class:on={!details}
+      disabled={noLib}
+      title="Icons{remembered}"
+      aria-pressed={!details}
+      onclick={() => setLayout(iconsLayout())}><LayoutGrid size={14} /><span>Icons</span></button
+    >
+    <button
+      class:on={details}
+      disabled={noLib}
+      title="Details{remembered}"
+      aria-pressed={details}
+      onclick={() => setLayout('list')}><List size={14} /><span>Details</span></button
+    >
+  </div>
 
   <label class="zoom" title="Thumbnail size (Ctrl+= and Ctrl+-)">
     <ImageIcon size={13} />
@@ -271,6 +299,40 @@
     align-self: stretch;
     min-width: 12px;
   }
+  .seg {
+    display: flex;
+    flex: none;
+    margin-right: 12px;
+    padding: 2px;
+    border-radius: 7px;
+    background: var(--fld);
+    border: 1px solid var(--line);
+  }
+  .seg button {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    height: 24px;
+    padding: 0 8px;
+    border-radius: 5px;
+    color: var(--mu);
+    font-size: 12px;
+  }
+  .seg button:hover:not(:disabled) {
+    color: var(--tx);
+  }
+  .seg button.on {
+    background: var(--chip);
+    color: var(--tx);
+    box-shadow: inset 0 0 0 1px var(--chip-line);
+  }
+  .seg button:disabled {
+    opacity: 0.45;
+  }
+  .seg button:focus-visible {
+    outline: 2px solid var(--bl);
+    outline-offset: -1px;
+  }
   .zoom {
     display: flex;
     align-items: center;
@@ -327,6 +389,9 @@
     white-space: nowrap;
   }
   @container (max-width: 1000px) {
+    .seg span {
+      display: none;
+    }
     .zoom input {
       width: 70px;
     }
