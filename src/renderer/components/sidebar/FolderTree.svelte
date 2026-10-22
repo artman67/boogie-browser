@@ -426,7 +426,7 @@
 
   const countOf = (id: string): number | undefined => {
     const c = library.counts?.folders[id];
-    return c ? (view.showSubfolderContents ? c.deep : c.own) : undefined;
+    return c?.deep; // everything under it, so a folder of folders doesn't read as empty
   };
   const nameOf = (node: FolderNode) => (renamed?.id === node.id ? renamed.name : node.name);
 </script>

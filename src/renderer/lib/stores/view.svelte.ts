@@ -12,6 +12,8 @@ function sameScope(a: Scope, b: Scope): boolean {
   return JSON.stringify(a) === JSON.stringify(b);
 }
 
+export type FolderView = 'icons' | 'details';
+
 /** A place in the back/forward history: where you were and what you had searched for there. */
 export interface Visit {
   scope: Scope;
@@ -36,7 +38,9 @@ class ViewStore {
   thumbSize = $state(190);
   showNames = $state(true);
   showMeta = $state(true);
-  showSubfolderContents = $state(true);
+  showSubfolderContents = $state(false);
+  /** Icons or Details, as picked for each folder of the open library. Kept on this computer. */
+  folderViews = $state<Record<string, FolderView>>({});
   /** Grayscale thumbnails for value checks (Ctrl+Alt+G in the grid). This session only. */
   grayscale = $state(false);
   /** A checkerboard behind thumbnails, to see transparency. Kept on this computer. */
@@ -79,6 +83,7 @@ class ViewStore {
    */
   reset(libraryId: string | null = null, valid: (s: Scope) => boolean = () => true): void {
     this.libraryId = libraryId;
+    this.folderViews = libraryId ? readJSON(`folderViews.${libraryId}`, {}) : {};
     const last = libraryId ? readJSON<Scope | null>(`lastScope.${libraryId}`, null) : null;
     this.scope =
       last && typeof last === 'object' && valid(last)
@@ -133,6 +138,11 @@ class ViewStore {
     this.sort = null;
     this.remember();
     this.run(0);
+  }
+
+  setFolderView(folderId: string, mode: FolderView): void {
+    this.folderViews = { ...this.folderViews, [folderId]: mode };
+    if (this.libraryId) writeJSON(`folderViews.${this.libraryId}`, this.folderViews);
   }
 
   private remember(): void {
