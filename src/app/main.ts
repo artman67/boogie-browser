@@ -1,5 +1,8 @@
 // Boogie Browser's Electron main process: starts the core, serves boogie://, opens the window,
 // runs the local servers, and shuts everything down cleanly (flushing mtime.json) on quit.
+// `--headless` skips the window and runs only the MCP server, so agents can work without the user
+// opening the app (the `boogie` command starts it this way). Opening the app later shows the window
+// in that same process, and a headless app nobody uses quits by itself.
 import { app, dialog, Menu, protocol, session, type BrowserWindow } from 'electron';
 import { join } from 'node:path';
 import type { CoreHost } from '../core/contracts';
@@ -41,6 +44,13 @@ protocol.registerSchemesAsPrivileged([
     },
   },
 ]);
+
+const headless = process.argv.includes('--headless');
+/** A headless app with no window and no agent calls for this long quits. */
+const IDLE_MS = 30 * 60_000;
+let lastAgentCall = Date.now();
+/** Becomes true when the app is opened normally, possibly while a headless one is still starting. */
+let wantWindow = !headless;
 
 let windows: Windows | null = null;
 let host: CoreHost | null = null;
@@ -98,7 +108,12 @@ if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
   app.on('second-instance', (_e, argv) => {
-    windows?.focusMain();
+    // Another `--headless` launch only wants the core running, which it is. Anything else is the
+    // user opening the app: show (or create) the window.
+    if (!argv.includes('--headless')) {
+      wantWindow = true;
+      openMain();
+    }
     handleEagleLinks(argv);
   });
   // macOS delivers links this way instead; harmless elsewhere.
@@ -147,10 +162,11 @@ async function start(): Promise<void> {
     host = await openHost(paths);
   } catch (e) {
     console.error('[main] the core failed to start:', e);
-    dialog.showErrorBox(
-      'Boogie Browser could not start',
-      e instanceof Error ? e.message : String(e),
-    );
+    if (!headless)
+      dialog.showErrorBox(
+        'Boogie Browser could not start',
+        e instanceof Error ? e.message : String(e),
+      );
     app.exit(1);
     return;
   }
@@ -176,6 +192,7 @@ async function start(): Promise<void> {
   // "Copy link" pages (http://localhost:41595/item?id=...) opened in a browser reveal the item here.
   const srv = new Servers(core, serverStarters, {
     onOpen: (t) => reveal({ kind: t.kind === 'smart-folder' ? 'smartFolder' : t.kind, id: t.id }),
+    onMcpRequest: () => (lastAgentCall = Date.now()),
   });
   servers = srv;
   const dispatch = createDispatcher({
@@ -187,12 +204,44 @@ async function start(): Promise<void> {
   });
   stopIpc = registerIpc({ host: core, windows: win, dispatch });
 
-  // Closing the main window quits the app, even with a reference window still floating.
-  const main = win.createMain();
-  main.on('closed', () => app.quit());
-  armReveal(core, main);
+  if (wantWindow) openMain();
+  else {
+    srv.mcpOnly = true;
+    quitWhenIdle(core);
+    console.log('[main] running headless: MCP server only, no window');
+  }
   handleEagleLinks(process.argv);
 
   // Servers start after the window is up so a busy port never delays the UI.
   void srv.sync().catch((e) => console.warn('[servers] start failed:', e));
+}
+
+/** Show the main window, creating it if needed (a headless app gets its first one here). */
+function openMain(): void {
+  if (!windows || !host || !servers) return; // still starting: start() opens it (wantWindow)
+  if (windows.main) return windows.focusMain();
+  // Closing the main window quits the app, even with a reference window still floating.
+  const main = windows.createMain();
+  main.on('closed', () => app.quit());
+  armReveal(host, main);
+  if (servers.mcpOnly) {
+    servers.mcpOnly = false;
+    void servers.sync().catch((e) => console.warn('[servers] start failed:', e));
+  }
+}
+
+/** A headless app quits once no window was opened and no agent has called for IDLE_MS, unless a job runs. */
+function quitWhenIdle(core: CoreHost): void {
+  const timer = setInterval(() => {
+    if (windows?.main) return clearInterval(timer);
+    if (Date.now() - lastAgentCall < IDLE_MS) return;
+    void core.api
+      .listJobs()
+      .then((jobs) => {
+        if (jobs.some((j) => j.state === 'running')) return;
+        console.log('[main] headless and idle: quitting');
+        app.quit();
+      })
+      .catch(() => app.quit());
+  }, 60_000);
 }

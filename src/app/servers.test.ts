@@ -119,6 +119,24 @@ describe('Servers', () => {
     });
     await servers.close();
   });
+
+  it('headless runs only MCP, then starts the rest when a window opens', async () => {
+    const { host } = fakeHost({});
+    const starters: ServerStarters = {
+      startEagleCompatServer: vi.fn(async () => compat(41595, 41593)),
+      startMcpServer: vi.fn(async () => mcp(41597)),
+    };
+    const servers = new Servers(host, starters, { retryMs: 10_000, compatPorts: {} });
+    servers.mcpOnly = true;
+    await servers.sync();
+    expect(starters.startMcpServer).toHaveBeenCalledTimes(1);
+    expect(starters.startEagleCompatServer).not.toHaveBeenCalled();
+    servers.mcpOnly = false;
+    await servers.sync();
+    expect(starters.startEagleCompatServer).toHaveBeenCalledTimes(1);
+    expect(starters.startMcpServer).toHaveBeenCalledTimes(1); // kept, not restarted
+    await servers.close();
+  });
 });
 
 describe('compatPortsFromEnv', () => {
