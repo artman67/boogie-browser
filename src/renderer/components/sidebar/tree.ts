@@ -183,3 +183,79 @@ export function scrollToReveal(
   if (top + ROW_H + pad > scrollTop + viewH) return top + ROW_H + pad - viewH;
   return null;
 }
+
+/**
+ * For each row, how many of its guide lines (from the left) are on the way to the current
+ * folder. A level's line is blue from the path folder at that level down to the end of the path
+ * (the current folder, or its deepest visible parent when a branch is closed), so one number per
+ * row is enough. `path` is the ids from the top down to the current folder.
+ */
+export function branchLevels(
+  rows: { node: { id: string }; depth: number }[],
+  path: string[],
+): number[] {
+  const out = new Array<number>(rows.length).fill(0);
+  if (!path.length) return out;
+  const want = new Set(path);
+  let end = -1;
+  rows.forEach((r, i) => want.has(r.node.id) && (end = i));
+  let passed = 0; // depth + 1 of the deepest path folder above this row
+  for (let i = 0; i <= end; i++) {
+    out[i] = Math.min(rows[i].depth, passed);
+    if (want.has(rows[i].node.id)) passed = rows[i].depth + 1;
+  }
+  return out;
+}
+
+export interface FilterHit {
+  id: string;
+  name: string;
+  /** Parent names, top level first. */
+  parents: string[];
+  /** Where the typed text starts in the name. */
+  at: number;
+}
+
+/**
+ * Folders whose name contains `query` (any case). Names that start with it come first, then
+ * shallower folders, then tree order. Returns the best `limit` and how many matched in all.
+ */
+export function filterFolders(
+  folders: Iterable<[string, { node: { name: string }; path: string[] }]>,
+  query: string,
+  limit = 50,
+): { hits: FilterHit[]; total: number } {
+  const q = query.trim().toLowerCase();
+  if (!q) return { hits: [], total: 0 };
+  const all: (FilterHit & { depth: number })[] = [];
+  for (const [id, f] of folders) {
+    const at = f.node.name.toLowerCase().indexOf(q);
+    if (at >= 0)
+      all.push({ id, name: f.node.name, parents: f.path.slice(0, -1), at, depth: f.path.length });
+  }
+  // Array.sort is stable, so equal folders keep tree order.
+  all.sort((a, b) => Number(a.at > 0) - Number(b.at > 0) || a.depth - b.depth);
+  return {
+    hits: all.slice(0, limit).map(({ depth: _, ...h }) => h),
+    total: all.length,
+  };
+}
+
+/**
+ * Where a long name's kept ending starts (the name's length when it is short enough to leave
+ * whole). The row shows the start with an ellipsis only when it doesn't fit, and always shows
+ * the ending, so "drive-download-…133812Z-001" stays tellable from its siblings. The ending
+ * starts after a space, dash, underscore or dot when one is near, so words stay whole.
+ */
+export function tailStart(name: string, keep = 11): number {
+  if (name.length <= keep + 6) return name.length;
+  const at = name.length - keep;
+  const sep = /[\s_\-.(]/.exec(name.slice(at, name.length - 5));
+  return sep ? at + sep.index + 1 : at;
+}
+
+/** A long name as text with its middle cut out ("drive-download…133812Z-001"), for parent paths. */
+export function shorten(name: string, head = 14): string {
+  const t = tailStart(name);
+  return t < name.length && t > head + 1 ? `${name.slice(0, head)}…${name.slice(t)}` : name;
+}

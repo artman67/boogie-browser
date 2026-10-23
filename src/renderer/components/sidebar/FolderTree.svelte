@@ -1,8 +1,12 @@
 <script lang="ts">
   // The Folders section: the tree, inline rename / new folder, drag and drop, keyboard, and
-  // virtual scrolling for libraries with thousands of folders (the Art library has 6,554).
+  // virtual scrolling for libraries with thousands of folders (the Art library has 6,554). Also
+  // the filter box, focus on one branch, and the pill back to the current folder.
   import { onMount, tick, untrack } from 'svelte';
   import ChevronRight from '@lucide/svelte/icons/chevron-right';
+  import ChevronLeft from '@lucide/svelte/icons/chevron-left';
+  import ArrowUp from '@lucide/svelte/icons/arrow-up';
+  import ArrowDown from '@lucide/svelte/icons/arrow-down';
   import Plus from '@lucide/svelte/icons/plus';
   import Ellipsis from '@lucide/svelte/icons/ellipsis';
   import Lock from '@lucide/svelte/icons/lock';
@@ -23,6 +27,7 @@
   import Section from './Section.svelte';
   import { sections } from './sections.svelte';
   import { expanded } from './expanded.svelte';
+  import { treeFocus } from './treeFocus.svelte';
   import { FolderDnd } from './folderDnd.svelte';
   import { folderMenu } from './folderMenu';
   import * as act from './actions';
@@ -31,9 +36,13 @@
     VIRTUAL_MIN,
     ancestorIds,
     branchIds,
+    branchLevels,
+    filterFolders,
     flatten,
     scrollToReveal,
+    shorten,
     siblingMove,
+    tailStart,
     windowRange,
     type Row,
   } from './tree';
@@ -63,6 +72,58 @@
   const roots = $derived(library.state?.folders ?? []);
   const ro = $derived(library.readOnly);
   const scopeId = $derived(view.scope.kind === 'folder' ? view.scope.id : null);
+  const libraryId = $derived(library.state?.ref.id ?? '');
+
+  // ── focus on one folder: the tree shows only its branch ──
+  const focusId = $derived.by(() => {
+    const id = treeFocus.get(libraryId);
+    return id && library.folders.has(id) ? id : null;
+  });
+  const treeRoots = $derived.by(() => {
+    const node = focusId ? library.folder(focusId)?.node : null;
+    return node ? [node] : roots;
+  });
+  function setFocus(id: string | null) {
+    const was = focusId;
+    treeFocus.set(libraryId, id);
+    if (id) expanded.add([id]);
+    void tick().then(() => {
+      // Focused: the branch starts at the top of the tree. Back to all: keep that folder in view.
+      if (id && scroller && scroller.scrollTop > measure() - 40)
+        scroller.scrollTop = Math.max(0, measure() - 40);
+      else if (!id && was) scrollToId(was, true);
+    });
+  }
+
+  // ── the filter box: a flat list of matching folders instead of the tree ──
+  let query = $state('');
+  let hi = $state(0);
+  let resultsEl = $state<HTMLElement | null>(null);
+  const filtering = $derived(!!query.trim());
+  const found = $derived(filterFolders(library.folders, query));
+  function filterKey(e: KeyboardEvent) {
+    const hits = found.hits;
+    if (e.key === 'ArrowDown') hi = Math.min(hi + 1, hits.length - 1);
+    else if (e.key === 'ArrowUp') hi = Math.max(hi - 1, 0);
+    else if (e.key === 'Enter') {
+      if (hits[hi]) act.openFolder(hits[hi].id);
+    } else if (e.key === 'Escape') {
+      if (!query) return;
+      clearFilter();
+    } else return;
+    e.preventDefault();
+    queueMicrotask(() => resultsEl?.querySelector('.hi')?.scrollIntoView({ block: 'nearest' }));
+  }
+  function clearFilter() {
+    query = '';
+    hi = 0;
+    // Back in the tree, show where the folder you opened from the list sits.
+    if (scopeId) {
+      expanded.add(ancestorIds(library.folders, scopeId));
+      cursorId = scopeId;
+      void tick().then(() => scopeId && scrollToId(scopeId));
+    }
+  }
   const showCursor = $derived(focus.region === 'sidebar');
 
   let cursorId = $state<string | null>(null);
@@ -85,7 +146,7 @@
   let treeTop = $state(0);
 
   // ── rows ──
-  const baseRows = $derived(flatten(roots, expanded.set));
+  const baseRows = $derived(flatten(treeRoots, expanded.set));
   const rows = $derived.by(() => {
     if (!inserting) return baseRows;
     const parent = inserting.parentId;
@@ -114,6 +175,35 @@
   const end = $derived(range[1]);
   const shown = $derived(rows.slice(start, end));
 
+  // ── the current folder: its parents' trail and the guide lines leading down to it ──
+  const path = $derived(scopeId ? [...ancestorIds(library.folders, scopeId), scopeId] : []);
+  const onPath = $derived(new Set(path));
+  /** Per row, how many of its guide lines are on the way to the current folder (drawn blue). */
+  const levels = $derived(branchLevels(rows, path));
+
+  // ── the pill back to the current folder when its row is out of view ──
+  const pill = $derived.by(() => {
+    if (!scopeId || filtering || !sections.open.folders || !viewH) return null;
+    let i = rows.findIndex((r) => r.node.id === scopeId);
+    let inside = false; // under a closed parent: aim at that parent
+    if (i < 0) {
+      for (let k = path.length - 2; k >= 0 && i < 0; k--)
+        i = rows.findIndex((r) => r.node.id === path[k]);
+      if (i < 0) return null; // outside the focused branch
+      inside = true;
+    }
+    const top = treeTop + i * ROW_H;
+    const up = top < scrollTop;
+    if (!inside && !up && top + ROW_H <= scrollTop + viewH) return null;
+    return { up, name: library.folder(scopeId)?.node.name ?? '' };
+  });
+  function backToHere() {
+    if (!scopeId) return;
+    expanded.add(ancestorIds(library.folders, scopeId));
+    const id = scopeId;
+    void tick().then(() => scrollToId(id, true));
+  }
+
   function measure(): number {
     if (!treeEl || !scroller) return treeTop;
     return Math.round(
@@ -134,19 +224,21 @@
     });
   });
 
-  function scrollToId(id: string) {
-    if (!scroller) return;
+  /** Bring a row into view: just enough, or (`center`) into the middle when it was far away. */
+  function scrollToId(id: string, center = false) {
+    if (!scroller || filtering) return;
     const i = rows.findIndex((r) => r.node.id === id);
     if (i < 0) return;
-    const to = scrollToReveal(i, scroller.scrollTop, scroller.clientHeight, measure());
-    if (to !== null) scroller.scrollTop = to;
+    const top = measure();
+    const to = scrollToReveal(i, scroller.scrollTop, scroller.clientHeight, top);
+    if (to === null) return;
+    scroller.scrollTop = center ? top + i * ROW_H - (scroller.clientHeight - ROW_H) / 2 : to;
   }
 
   // ── loading, and opening the parents of the folder you're looking at ──
   let revealed = '';
   let lastScope = '';
   $effect(() => {
-    const libraryId = library.state?.ref.id ?? '';
     const folders = library.folders;
     const id = scopeId;
     const scopeKey = id ? `folder:${id}` : view.scope.kind;
@@ -182,10 +274,10 @@
   }
 
   // ── expand / collapse ──
-  const expandAll = () => expanded.replace(new Set(branchIds(roots)));
+  const expandAll = () => expanded.add(branchIds(treeRoots));
   const collapseAll = () => expanded.replace(new Set());
   function toggleAll() {
-    const all = branchIds(roots);
+    const all = branchIds(treeRoots);
     if (all.length && all.every((id) => expanded.set.has(id))) collapseAll();
     else expandAll();
   }
@@ -193,6 +285,13 @@
   // ── new folder, rename ──
   function startCreate(parentId: string | null) {
     if (!canEdit()) return;
+    // While focused, "new folder" goes into the focused folder; a parent outside it shows all.
+    parentId ??= focusId;
+    if (focusId && parentId && !baseRows.some((r) => r.node.id === parentId)) {
+      const ups = ancestorIds(library.folders, parentId);
+      if (!ups.includes(focusId)) treeFocus.set(libraryId, null);
+      expanded.add(ups);
+    }
     renamingId = null;
     if (!sections.open.folders) sections.toggle('folders');
     if (parentId) expanded.add([parentId]);
@@ -289,7 +388,7 @@
   // Keys run through the shared command registry only while the sidebar has keyboard focus, and
   // never while a dialog or picker is up. Enter is left alone when a button has focus.
   const active = (c: CommandContext) =>
-    c.region === 'sidebar' && !ui.dialog && !ui.picker && baseRows.length > 0;
+    c.region === 'sidebar' && !ui.dialog && !ui.picker && !filtering && baseRows.length > 0;
   const notOnButton = () => document.activeElement?.tagName !== 'BUTTON';
 
   /** Titles for the shortcut sheet. */
@@ -353,7 +452,7 @@
         keys: ['*', 'Shift+*', 'Shift+8'],
         hidden: true,
         when: (c) =>
-          c.region !== 'overlay' && !ui.viewer && !ui.dialog && !ui.picker && roots.length > 0,
+          c.region !== 'overlay' && !ui.viewer && !ui.dialog && !ui.picker && treeRoots.length > 0,
         run: toggleAll,
       },
       { ...keyed('cursorUp', ['ArrowUp'], () => moveCursor(-1)), repeat: true },
@@ -394,7 +493,12 @@
     cursorId = node.id;
     openContextMenu(
       e,
-      folderMenu(node, { newSub: () => startCreate(node.id), rename: () => startRename(node.id) }),
+      folderMenu(node, {
+        newSub: () => startCreate(node.id),
+        rename: () => startRename(node.id),
+        focusedId: focusId,
+        focus: setFocus,
+      }),
     );
   }
   const headerItems = (): MenuItem[] => [
@@ -419,6 +523,9 @@
       run: () => void act.sortFoldersAZ(null),
     },
     { label: 'Collapse all folders', run: collapseAll },
+    ...(focusId
+      ? [{ separator: true }, { label: 'Show all folders', run: () => setFocus(null) }]
+      : []),
   ];
   let menuBtn = $state<HTMLButtonElement | null>(null);
 
@@ -456,9 +563,79 @@
     >
   {/snippet}
 
+  {#if library.folders.size > 30}
+    <input
+      class="sb-filter"
+      placeholder="Filter folders"
+      aria-label="Filter folders"
+      role="combobox"
+      aria-expanded={filtering}
+      aria-autocomplete="list"
+      aria-controls="ff-list"
+      aria-activedescendant={filtering && found.hits[hi] ? `ff-${found.hits[hi].id}` : undefined}
+      autocomplete="off"
+      spellcheck="false"
+      bind:value={query}
+      oninput={() => (hi = 0)}
+      onkeydown={filterKey}
+    />
+  {/if}
+  {#if filtering}
+    <div
+      class="results"
+      id="ff-list"
+      role="listbox"
+      aria-label="Matching folders"
+      bind:this={resultsEl}
+    >
+      {#each found.hits as h, i (h.id)}
+        {@const f = library.folder(h.id)?.node}
+        {@const n = countOf(h.id)}
+        {@const q = query.trim().length}
+        <!-- The filter box keeps the keyboard (aria-activedescendant); a click opens the folder. -->
+        <!-- svelte-ignore a11y_click_events_have_key_events -->
+        <div
+          class="res"
+          class:hi={i === hi}
+          class:sel={scopeId === h.id}
+          id="ff-{h.id}"
+          role="option"
+          tabindex="-1"
+          aria-selected={i === hi}
+          title={[...h.parents, h.name].join(' › ')}
+          onmousemove={() => (hi = i)}
+          onmousedown={(e) => e.preventDefault()}
+          onclick={() => act.openFolder(h.id)}
+        >
+          <div class="a">
+            <FolderGlyph color={f?.iconColor} icon={f?.icon} />
+            <span class="fn"
+              >{h.name.slice(0, h.at)}<mark>{h.name.slice(h.at, h.at + q)}</mark>{h.name.slice(
+                h.at + q,
+              )}</span
+            >
+            {#if n}<span class="sb-ct">{n.toLocaleString()}</span>{/if}
+          </div>
+          {#if h.parents.length}<div class="p">
+              {h.parents.map((p) => shorten(p)).join(' › ')}
+            </div>{/if}
+        </div>
+      {/each}
+      {#if !found.total}
+        <div class="sb-hint">No folders match.</div>
+      {:else if found.total > found.hits.length}
+        <div class="sb-hint">{(found.total - found.hits.length).toLocaleString()} more</div>
+      {/if}
+    </div>
+  {:else if focusId}
+    <button class="sb-row back" onclick={() => setFocus(null)}
+      ><ChevronLeft size={13} />All folders</button
+    >
+  {/if}
   <div
     class="list"
     class:virtual
+    hidden={filtering}
     role="tree"
     tabindex="0"
     aria-label="Folders"
@@ -469,10 +646,12 @@
     onfocus={focusTree}
   >
     <div class="win" style:top={virtual ? `${start * ROW_H}px` : undefined}>
-      {#each shown as row (row.node.id)}
+      {#each shown as row, i (row.node.id)}
         {@const node = row.node}
         {@const isNew = node.id === NEW_ID}
         {@const n = countOf(node.id)}
+        {@const name = nameOf(node)}
+        {@const cut = tailStart(name)}
         <!-- Keys go through the command registry and the tree container holds focus (aria-activedescendant),
              so rows are neither key handlers nor tab stops. -->
         <!-- svelte-ignore a11y_click_events_have_key_events, a11y_interactive_supports_focus -->
@@ -480,6 +659,8 @@
           class="sb-row tree"
           class:open={row.open}
           class:sel={scopeId === node.id}
+          class:anc={scopeId !== node.id && onPath.has(node.id)}
+          class:top={row.depth === 0}
           class:cur={showCursor && cursorId === node.id && scopeId !== node.id}
           class:dz-inside={dnd.hover?.id === node.id && dnd.hover.zone === 'inside'}
           class:dz-before={dnd.hover?.id === node.id && dnd.hover.zone === 'before'}
@@ -491,6 +672,7 @@
           aria-level={row.depth + 1}
           aria-expanded={row.hasChildren ? row.open : undefined}
           style:--d={row.depth}
+          style:--b={levels[start + i] || undefined}
           title={isNew ? undefined : node.name}
           draggable={!ro && !isNew && renamingId !== node.id}
           onclick={() => !isNew && select(node)}
@@ -529,8 +711,15 @@
               oncancel={() => (renamingId = null)}
             />
           {:else}
-            <span class="fn" role="presentation" ondblclick={() => startRename(node.id)}
-              >{nameOf(node)}</span
+            <!-- A long name is cut in the middle, never at its end, so similar names stay apart. -->
+            <span
+              class="fn"
+              class:split={cut < name.length}
+              role="presentation"
+              ondblclick={() => startRename(node.id)}
+              >{#if cut < name.length}<span class="fh">{name.slice(0, cut)}</span><span class="ft"
+                  >{name.slice(cut)}</span
+                >{:else}{name}{/if}</span
             >
             {#if node.hasPassword}<span class="lk" title="Locked in Eagle"
                 ><Lock size={11} aria-label="Locked in Eagle" /></span
@@ -545,6 +734,13 @@
     <div class="sb-hint">No folders yet.{ro ? '' : ' Use + to make one.'}</div>
   {/if}
 </Section>
+
+{#if pill}
+  <button class="pill" class:up={pill.up} onclick={backToHere} title="Show the current folder"
+    >{#if pill.up}<ArrowUp size={12} />{:else}<ArrowDown size={12} />{/if}<span>{pill.name}</span
+    ></button
+  >
+{/if}
 
 <style>
   .list {
@@ -567,5 +763,87 @@
     flex: none;
     color: var(--fa);
     margin-left: 2px;
+  }
+  .back {
+    height: 24px;
+    gap: 5px;
+    margin-bottom: 2px;
+    color: var(--link);
+    font-size: 12px;
+  }
+  .results {
+    padding-bottom: 4px;
+  }
+  .res {
+    margin: 0 8px;
+    padding: 5px 10px;
+    border-radius: var(--radius);
+    cursor: default;
+    user-select: none;
+  }
+  .res.hi {
+    background: var(--hov);
+  }
+  .res .a {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+  .res .fn {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: pre;
+  }
+  .res.sel .fn {
+    color: var(--link);
+    font-weight: 600;
+  }
+  .res .p {
+    margin: 1px 0 0 23px;
+    font-size: 11px;
+    color: var(--fa);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  mark {
+    background: color-mix(in srgb, var(--bl) 35%, transparent);
+    color: white;
+    border-radius: 2px;
+  }
+  /* Floats over the sidebar's scroll area: its containing block is .sb-body, not the scroller,
+     so it neither scrolls nor gets clipped. */
+  .pill {
+    position: absolute;
+    left: 50%;
+    bottom: 10px;
+    z-index: 3;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    max-width: calc(100% - 40px);
+    height: 24px;
+    padding: 0 11px 0 9px;
+    border-radius: 99px;
+    background: var(--bl);
+    color: white;
+    font-size: 12px;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  .pill.up {
+    bottom: auto;
+    top: 10px;
+  }
+  .pill :global(svg) {
+    flex: none;
+  }
+  .pill span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 </style>
