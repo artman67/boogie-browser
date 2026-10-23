@@ -1,8 +1,10 @@
-// Finding folders by typing, for the folder picker, go-to-folder and the folder fields in dialogs.
+// Finding folders by typing (the folder picker, go-to-folder, the folder fields in dialogs) and
+// going to them.
 // Libraries have thousands of folders (6,554 in one real library), so pickers list the best
 // matches, never the whole tree.
 import { fuzzy, segments, type Segment } from './fuzzy';
 import { library } from './stores/library.svelte';
+import { view } from './stores/view.svelte';
 import type { FolderNode, Scope } from '../../shared/types';
 
 export interface FolderHit {
@@ -90,4 +92,17 @@ export function isLocked(id: string): boolean {
   for (let f = library.folder(id); f; f = f.parentId ? library.folder(f.parentId) : undefined)
     if (f.node.hasPassword) return true;
   return false;
+}
+
+/** Open folder `id` like any other navigation (Back returns); null opens All. */
+export function goToFolder(id: string | null): void {
+  view.setScope(
+    id ? { kind: 'folder', id, includeSubfolders: view.showSubfolderContents } : { kind: 'all' },
+  );
+}
+
+/** Folder `id`'s parent, or All for a top-level folder (Alt+Up). */
+export function goUp(id: string): void {
+  const f = library.folder(id);
+  if (f) goToFolder(f.parentId);
 }

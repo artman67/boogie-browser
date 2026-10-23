@@ -12,6 +12,15 @@
   /** How far the open submenu moves up to stay on screen, and whether it opens to the left. */
   let subFit = $state({ dy: 0, left: false });
 
+  // A menu without submenus scrolls when it is taller than the window (or its maxHeight): a
+  // folder can have hundreds of subfolders. Submenus hang outside the menu, where a scroller
+  // would clip them, so menus with them never scroll.
+  const maxHeight = $derived.by(() => {
+    const m = contextMenu.open;
+    if (!m || m.items.some((i) => i.submenu)) return undefined;
+    return Math.min(m.maxHeight ?? Infinity, innerHeight - 16);
+  });
+
   // Keep the menu on screen.
   $effect(() => {
     const m = contextMenu.open;
@@ -56,7 +65,10 @@
   $effect(() => {
     if (!contextMenu.open) return;
     const before = untrack(() => document.activeElement);
-    void tick().then(() => el?.focus({ preventScroll: true }));
+    void tick().then(() => {
+      el?.focus({ preventScroll: true });
+      el?.querySelector('.checked')?.scrollIntoView({ block: 'nearest' });
+    });
     return () => {
       const now = document.activeElement;
       if (before instanceof HTMLElement && before.isConnected && (!now || now === document.body))
@@ -145,6 +157,8 @@
     data-i={i}
     aria-haspopup={item.submenu ? 'menu' : undefined}
     class:danger={item.danger}
+    class:checked={item.checked}
+    style:padding-left={item.indent ? `${6 + item.indent * 12}px` : undefined}
     disabled={item.disabled}
     title={item.title}
     onmouseenter={onenter}
@@ -170,7 +184,9 @@
     role="menu"
     tabindex="-1"
     bind:this={el}
+    class:scroll={maxHeight !== undefined}
     style="left:{pos.x}px;top:{pos.y}px"
+    style:max-height={maxHeight !== undefined ? `${maxHeight}px` : undefined}
     onkeydown={onkey}
   >
     {#each contextMenu.open.items as item, i (i)}
@@ -211,6 +227,10 @@
     background: var(--panel);
     border: 1px solid var(--panel-line);
     box-shadow: var(--shadow-pop);
+  }
+  .scroll {
+    overflow-y: auto;
+    overscroll-behavior: contain;
   }
   .submenu {
     position: absolute;

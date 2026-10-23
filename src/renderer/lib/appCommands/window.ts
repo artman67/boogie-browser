@@ -1,6 +1,7 @@
-// App-wide commands for the window: the command bar, going back and forth, the side panels and
+// App-wide commands for the window: the command bar, going back, forth and up, the side panels and
 // how the grid looks.
 import type { Command } from '../commands.svelte';
+import { goUp } from '../folders';
 import { LAYOUTS, setLayout, toggleMeta, toggleNames, toggleSubfolders, zoomBy } from '../prefs';
 import { ui } from '../stores/ui.svelte';
 import { view } from '../stores/view.svelte';
@@ -65,6 +66,15 @@ export function windowCommands(): Command[] {
       keys: ['Alt+ArrowRight'],
       when: (c) => c.region !== 'overlay' && view.forward.length > 0,
       run: () => view.goForward(),
+    },
+    {
+      id: 'nav.up',
+      mainWindow: true,
+      title: 'Go up a folder',
+      group: 'Navigate',
+      keys: ['Alt+ArrowUp'],
+      when: (c) => c.region !== 'overlay' && view.scope.kind === 'folder',
+      run: () => view.scope.kind === 'folder' && goUp(view.scope.id),
     },
     {
       id: 'ui.sidebar',

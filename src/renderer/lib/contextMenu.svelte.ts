@@ -3,7 +3,7 @@
 //   openMenuBelow(button, items)   // a menu that hangs from a button
 export interface MenuItem {
   label?: string;
-  keys?: string; // shown on the right, e.g. 'F2'
+  keys?: string; // shown faint on the right: a shortcut ('F2') or a count
   icon?: string; // lucide icon name (optional)
   danger?: boolean;
   disabled?: boolean;
@@ -13,12 +13,15 @@ export interface MenuItem {
   swatch?: string;
   separator?: boolean;
   checked?: boolean;
+  /** Steps to indent the label (a list of nested folders). */
+  indent?: number;
   submenu?: MenuItem[];
   run?: () => unknown;
 }
 
 class ContextMenuStore {
-  open = $state<{ x: number; y: number; items: MenuItem[] } | null>(null);
+  /** maxHeight: past it the menu scrolls (menus without submenus only). */
+  open = $state<{ x: number; y: number; items: MenuItem[]; maxHeight?: number } | null>(null);
 }
 
 export const contextMenu = new ContextMenuStore();
@@ -30,14 +33,24 @@ export function openContextMenu(e: MouseEvent, items: MenuItem[]): void {
 }
 
 /** Open at a point in the window (the menu keeps itself on screen). */
-export function openContextMenuAt(x: number, y: number, items: MenuItem[]): void {
-  contextMenu.open = { x, y, items };
+export function openContextMenuAt(
+  x: number,
+  y: number,
+  items: MenuItem[],
+  maxHeight?: number,
+): void {
+  contextMenu.open = { x, y, items, maxHeight };
 }
 
-/** Open just under an element, left-aligned with it (toolbar and header buttons). */
+/**
+ * Open just under an element, left-aligned with it (toolbar and header buttons). A long list
+ * stays under its button and scrolls in the room below, when there is a fair amount of it.
+ */
 export function openMenuBelow(el: Element | null, items: MenuItem[]): void {
   const r = el?.getBoundingClientRect();
-  openContextMenuAt(r ? r.left : 200, r ? r.bottom + 4 : 56, items);
+  const y = r ? r.bottom + 4 : 56;
+  const below = innerHeight - y - 8;
+  openContextMenuAt(r ? r.left : 200, y, items, below >= 240 ? below : undefined);
 }
 
 export function closeContextMenu(): void {
