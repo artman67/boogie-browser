@@ -1,10 +1,9 @@
 <script lang="ts">
-  // The 48 px bar above the grid: panel toggles, back/forward, where you are (with view options),
-  // thumbnail zoom, sort, color search, filters, the command bar, "+" and Settings. Its empty
-  // middle is the window's drag region. Also registers the app-wide shortcuts (see globalCommands.ts).
+  // The 48 px bar above the grid: panel toggles, back/forward, layout, thumbnail zoom, sort, color
+  // search, filters, the command bar, "+" and Settings (where you are is in PathBar, under it). Its
+  // empty middle is the window's drag region. Also registers the app-wide shortcuts (see globalCommands.ts).
   import ArrowDownWideNarrow from '@lucide/svelte/icons/arrow-down-wide-narrow';
   import ArrowUpNarrowWide from '@lucide/svelte/icons/arrow-up-narrow-wide';
-  import ChevronDown from '@lucide/svelte/icons/chevron-down';
   import ChevronLeft from '@lucide/svelte/icons/chevron-left';
   import ChevronRight from '@lucide/svelte/icons/chevron-right';
   import Funnel from '@lucide/svelte/icons/funnel';
@@ -32,15 +31,10 @@
   import { ui } from '../../lib/stores/ui.svelte';
   import { view } from '../../lib/stores/view.svelte';
   import { filterUi } from '../filters/filterUi.svelte';
-  import { whereYouAre } from './where';
-  import { emptyTrash } from '../../lib/appCommands';
-  import { addMenu, currentSort, sortMenu, viewMenu } from './menus';
-
-  const where = $derived(whereYouAre());
+  import { addMenu, currentSort, sortMenu } from './menus';
 
   const sort = $derived(currentSort());
   const SortIcon = $derived(sort.ascending ? ArrowUpNarrowWide : ArrowDownWideNarrow);
-  const count = $derived(view.result ? view.result.total.toLocaleString() : '');
   // Before a library is open there is nothing to sort, filter, zoom or add to.
   const noLib = $derived(!library.state);
   const details = $derived(shownLayout() === 'list');
@@ -70,31 +64,6 @@
     disabled={!view.forward.length}
     onclick={() => view.goForward()}><ChevronRight size={16} /></button
   >
-
-  <button
-    class="ttl"
-    disabled={noLib}
-    title="View options"
-    aria-haspopup="menu"
-    onclick={(e) => openMenuBelow(e.currentTarget, viewMenu())}
-  >
-    {#if where.color}
-      <where.icon size={18} style="color:{where.color};fill:{where.color}" />
-    {:else}
-      <where.icon size={17} class="muted" />
-    {/if}
-    <span class="nm">{where.name}</span>
-    <ChevronDown size={14} class="muted" />
-  </button>
-  <span class="n" aria-label="Items shown">{count}</span>
-  {#if view.scope.kind === 'trash' && library.counts?.trash}
-    <button
-      class="emptytrash"
-      disabled={library.readOnly}
-      title={readOnlyTip() ?? 'Remove everything in the trash from the library'}
-      onclick={() => emptyTrash()}>Empty trash</button
-    >
-  {/if}
 
   <div class="sp"></div>
 
@@ -236,63 +205,12 @@
     color: var(--link);
   }
   .ib:focus-visible,
-  .ttl:focus-visible,
   .cmd:focus-visible {
     outline: 2px solid var(--bl);
     outline-offset: -1px;
   }
-  .ttl {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    /* Keep the icon and the start of the name visible even in the narrowest window. */
-    min-width: 56px;
-    height: 30px;
-    margin-left: 6px;
-    padding: 0 8px;
-    flex: 0 1 auto;
-    border-radius: 6px;
-    font-weight: 600;
-    font-size: 14px;
-    white-space: nowrap;
-  }
-  .ttl:hover:not(:disabled) {
-    background: var(--hov);
-  }
-  .ttl:disabled,
   .zoom input:disabled {
     opacity: 0.45;
-  }
-  .ttl .nm {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 30ch;
-  }
-  .ttl :global(.muted) {
-    color: var(--fa);
-    flex: none;
-  }
-  .n {
-    margin-left: 2px;
-    color: var(--fa);
-    font-size: 12.5px;
-    font-variant-numeric: tabular-nums;
-    white-space: nowrap;
-  }
-  .emptytrash {
-    margin-left: 8px;
-    height: 24px;
-    padding: 0 10px;
-    border-radius: 6px;
-    border: 1px solid var(--line);
-    color: var(--err);
-    font-size: 12px;
-  }
-  .emptytrash:hover:not(:disabled) {
-    background: var(--bls);
-  }
-  .emptytrash:disabled {
-    color: var(--fa);
   }
   .sp {
     flex: 1;
@@ -366,7 +284,8 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    flex: 0 1 330px;
+    /* The widest thing in the bar: it takes the room up to here and gives it back first. */
+    flex: 0 1 440px;
     min-width: 140px;
     height: 32px;
     margin-left: 6px;
@@ -395,9 +314,6 @@
     .zoom input {
       width: 70px;
     }
-    .cmd {
-      flex-basis: 260px;
-    }
   }
   /* A 1280 px window with both panels open lands here: the slider stays, its icons go. */
   @container (max-width: 800px) {
@@ -410,14 +326,8 @@
     .zoom input {
       width: 56px;
     }
-    .cmd {
-      flex-basis: 176px;
-    }
     .cmd kbd {
       display: none;
-    }
-    .ttl .nm {
-      max-width: 16ch;
     }
   }
   @container (max-width: 700px) {
@@ -425,8 +335,8 @@
       display: none;
     }
   }
-  /* Very narrow: the command bar shrinks to its search icon so the title keeps its room. */
-  @container (max-width: 640px) {
+  /* Very narrow: the command bar shrinks to its search icon. */
+  @container (max-width: 580px) {
     .cmd {
       flex: none;
       min-width: 0;
@@ -435,9 +345,6 @@
       justify-content: center;
     }
     .cmd .ph {
-      display: none;
-    }
-    .n {
       display: none;
     }
   }

@@ -41,3 +41,10 @@ export function duration(sec: number): string {
   const r = String(s % 60).padStart(2, '0');
   return h ? `${h}:${String(m).padStart(2, '0')}:${r}` : `${m}:${r}`;
 }
+
+/** A library's badge: "Course Library - Main File" -> CL, "my test" -> MT, "Art" -> AR. */
+export function initials(name: string): string {
+  const words = name.split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+  const two = words.length > 1 ? words[0][0] + words[1][0] : (words[0] ?? '?').slice(0, 2);
+  return two.toUpperCase();
+}

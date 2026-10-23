@@ -1,4 +1,4 @@
-// Menu contents for the toolbar: view options (title chevron), sort, and "+".
+// Menus for the toolbar and path bar: view options (the path bar's last crumb), sort, and "+".
 import type { MenuItem } from '../../lib/contextMenu.svelte';
 import { readOnlyTip, toastWithUndo } from '../../lib/edit';
 import { importFiles, importFolder, pasteFromClipboard } from '../../lib/files';

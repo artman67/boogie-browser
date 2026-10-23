@@ -15,6 +15,7 @@
   import { registerAppCommands } from './lib/appCommands';
   import Sidebar from './components/sidebar/Sidebar.svelte';
   import Toolbar from './components/toolbar/Toolbar.svelte';
+  import PathBar from './components/toolbar/PathBar.svelte';
   import TabStrip from './components/tabs/TabStrip.svelte';
   import DockTarget from './components/tabs/DockTarget.svelte';
   import { registerTabCommands } from './components/tabs/commands';
@@ -76,6 +77,7 @@
   {#if ui.sidebarVisible}<aside class="side" inert={covered}><Sidebar /></aside>{/if}
   <main class="main" inert={covered}>
     <Toolbar />
+    <PathBar />
     <Banner />
     <FilterBar />
     <div class="gridwrap"><Grid /></div>
