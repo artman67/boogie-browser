@@ -110,7 +110,7 @@ button.sb-row {
     calc(min(var(--d), 6) * 16px) 100%,
     calc(max(var(--d) - 6, 0) * 6px) 100%;
   --rail: var(--chip-line);
-  --rail-on: color-mix(in srgb, var(--bl-soft) 60%, transparent);
+  --rail-on: color-mix(in srgb, var(--bl-soft) 90%, transparent);
 }
 /* Top-level folders read as sections. */
 .sb-row.tree.top {
