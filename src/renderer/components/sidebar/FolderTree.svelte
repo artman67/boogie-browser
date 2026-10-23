@@ -1,7 +1,7 @@
 <script lang="ts">
   // The Folders section: the tree, inline rename / new folder, drag and drop, keyboard, and
   // virtual scrolling for libraries with thousands of folders (the Art library has 6,554). Also
-  // the filter box, focus on one branch, and the pill back to the current folder.
+  // focus on one branch and the pill back to the current folder. The filter box is FolderFilter.
   import { onMount, tick, untrack } from 'svelte';
   import ChevronRight from '@lucide/svelte/icons/chevron-right';
   import ChevronLeft from '@lucide/svelte/icons/chevron-left';
@@ -22,6 +22,7 @@
   import { openContextMenu, openMenuBelow, type MenuItem } from '../../lib/contextMenu.svelte';
   import { canEdit, readOnlyTip } from '../../lib/edit';
   import type { FolderNode } from '../../../shared/types';
+  import FolderFilter from './FolderFilter.svelte';
   import FolderGlyph from './FolderGlyph.svelte';
   import InlineInput from './InlineInput.svelte';
   import Section from './Section.svelte';
@@ -37,10 +38,8 @@
     ancestorIds,
     branchIds,
     branchLevels,
-    filterFolders,
     flatten,
     scrollToReveal,
-    shorten,
     siblingMove,
     tailStart,
     windowRange,
@@ -95,28 +94,10 @@
     });
   }
 
-  // ── the filter box: a flat list of matching folders instead of the tree ──
+  // ── the filter box (FolderFilter): while it has a query, its list replaces the tree ──
   let query = $state('');
-  let hi = $state(0);
-  let resultsEl = $state<HTMLElement | null>(null);
   const filtering = $derived(!!query.trim());
-  const found = $derived(filterFolders(library.folders, query));
-  function filterKey(e: KeyboardEvent) {
-    const hits = found.hits;
-    if (e.key === 'ArrowDown') hi = Math.min(hi + 1, hits.length - 1);
-    else if (e.key === 'ArrowUp') hi = Math.max(hi - 1, 0);
-    else if (e.key === 'Enter') {
-      if (hits[hi]) act.openFolder(hits[hi].id);
-    } else if (e.key === 'Escape') {
-      if (!query) return;
-      clearFilter();
-    } else return;
-    e.preventDefault();
-    queueMicrotask(() => resultsEl?.querySelector('.hi')?.scrollIntoView({ block: 'nearest' }));
-  }
-  function clearFilter() {
-    query = '';
-    hi = 0;
+  function filterCleared() {
     // Back in the tree, show where the folder you opened from the list sits.
     if (scopeId) {
       expanded.add(ancestorIds(library.folders, scopeId));
@@ -563,71 +544,8 @@
     >
   {/snippet}
 
-  {#if library.folders.size > 30}
-    <input
-      class="sb-filter"
-      placeholder="Filter folders"
-      aria-label="Filter folders"
-      role="combobox"
-      aria-expanded={filtering}
-      aria-autocomplete="list"
-      aria-controls="ff-list"
-      aria-activedescendant={filtering && found.hits[hi] ? `ff-${found.hits[hi].id}` : undefined}
-      autocomplete="off"
-      spellcheck="false"
-      bind:value={query}
-      oninput={() => (hi = 0)}
-      onkeydown={filterKey}
-    />
-  {/if}
-  {#if filtering}
-    <div
-      class="results"
-      id="ff-list"
-      role="listbox"
-      aria-label="Matching folders"
-      bind:this={resultsEl}
-    >
-      {#each found.hits as h, i (h.id)}
-        {@const f = library.folder(h.id)?.node}
-        {@const n = countOf(h.id)}
-        {@const q = query.trim().length}
-        <!-- The filter box keeps the keyboard (aria-activedescendant); a click opens the folder. -->
-        <!-- svelte-ignore a11y_click_events_have_key_events -->
-        <div
-          class="res"
-          class:hi={i === hi}
-          class:sel={scopeId === h.id}
-          id="ff-{h.id}"
-          role="option"
-          tabindex="-1"
-          aria-selected={i === hi}
-          title={[...h.parents, h.name].join(' › ')}
-          onmousemove={() => (hi = i)}
-          onmousedown={(e) => e.preventDefault()}
-          onclick={() => act.openFolder(h.id)}
-        >
-          <div class="a">
-            <FolderGlyph color={f?.iconColor} icon={f?.icon} />
-            <span class="fn"
-              >{h.name.slice(0, h.at)}<mark>{h.name.slice(h.at, h.at + q)}</mark>{h.name.slice(
-                h.at + q,
-              )}</span
-            >
-            {#if n}<span class="sb-ct">{n.toLocaleString()}</span>{/if}
-          </div>
-          {#if h.parents.length}<div class="p">
-              {h.parents.map((p) => shorten(p)).join(' › ')}
-            </div>{/if}
-        </div>
-      {/each}
-      {#if !found.total}
-        <div class="sb-hint">No folders match.</div>
-      {:else if found.total > found.hits.length}
-        <div class="sb-hint">{(found.total - found.hits.length).toLocaleString()} more</div>
-      {/if}
-    </div>
-  {:else if focusId}
+  <FolderFilter bind:query oncleared={filterCleared} />
+  {#if focusId && !filtering}
     <button class="sb-row back" onclick={() => setFocus(null)}
       ><ChevronLeft size={13} />All folders</button
     >
@@ -770,48 +688,6 @@
     margin-bottom: 2px;
     color: var(--link);
     font-size: 12px;
-  }
-  .results {
-    padding-bottom: 4px;
-  }
-  .res {
-    margin: 0 8px;
-    padding: 5px 10px;
-    border-radius: var(--radius);
-    cursor: default;
-    user-select: none;
-  }
-  .res.hi {
-    background: var(--hov);
-  }
-  .res .a {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-  }
-  .res .fn {
-    flex: 1;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: pre;
-  }
-  .res.sel .fn {
-    color: var(--link);
-    font-weight: 600;
-  }
-  .res .p {
-    margin: 1px 0 0 23px;
-    font-size: 11px;
-    color: var(--fa);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  mark {
-    background: color-mix(in srgb, var(--bl) 35%, transparent);
-    color: white;
-    border-radius: 2px;
   }
   /* Floats over the sidebar's scroll area: its containing block is .sb-body, not the scroller,
      so it neither scrolls nor gets clipped. */
