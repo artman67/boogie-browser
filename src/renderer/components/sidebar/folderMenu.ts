@@ -25,7 +25,13 @@ function setColor(id: string, iconColor: FolderColor | null): void {
 
 export function folderMenu(
   node: FolderNode,
-  on: { newSub: () => void; rename: () => void },
+  on: {
+    newSub: () => void;
+    rename: () => void;
+    /** The folder the tree is focused on, if any, and how to change it (null shows all). */
+    focusedId: string | null;
+    focus: (id: string | null) => void;
+  },
 ): MenuItem[] {
   const lock = readOnlyTip();
   /** Changes the library: disabled, with the reason, while read-only. */
@@ -61,6 +67,10 @@ export function folderMenu(
     { separator: true },
     { label: 'Copy link', run: () => void copyLink('folder', node.id) },
     { label: 'Export folder…', run: () => exportFolder(node.id) },
+    ...(on.focusedId !== node.id
+      ? [{ label: 'Focus on this folder', run: () => on.focus(node.id) }]
+      : []),
+    ...(on.focusedId ? [{ label: 'Show all folders', run: () => on.focus(null) }] : []),
     { separator: true },
     edit({
       label: inQuickAccess('folder', node.id) ? 'Remove from Quick Access' : 'Add to Quick Access',

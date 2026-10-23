@@ -5,12 +5,16 @@ import {
   ancestorIds,
   ancestorsInTree,
   branchIds,
+  branchLevels,
   countDescendants,
+  filterFolders,
   flatten,
   isSelfOrDescendant,
   moveTarget,
   scrollToReveal,
+  shorten,
   siblingMove,
+  tailStart,
   windowRange,
   zoneAt,
 } from './tree';
@@ -141,5 +145,60 @@ describe('virtual window', () => {
     expect(scrollToReveal(10, 0, 600, 300)).toBeNull(); // row at 560..586, inside
     expect(scrollToReveal(50, 0, 600, 300)).toBe(300 + 50 * ROW_H + ROW_H + 6 - 600);
     expect(scrollToReveal(0, 900, 600, 300)).toBe(294);
+  });
+});
+
+describe('guide lines to the current folder', () => {
+  it('colors each level from its path folder down to the current one', () => {
+    const rows = flatten(roots, new Set(['a', 'a2']));
+    // a, a1, a2, a2x, b, c: the current folder is a2x
+    expect(branchLevels(rows, ['a', 'a2', 'a2x'])).toEqual([0, 1, 1, 2, 0, 0]);
+  });
+  it('ends at the deepest open parent when the branch is closed', () => {
+    const rows = flatten(roots, new Set(['a']));
+    // a, a1, a2 (closed), b, c
+    expect(branchLevels(rows, ['a', 'a2', 'a2x'])).toEqual([0, 1, 1, 0, 0]);
+  });
+  it('is all zero outside a folder', () => {
+    expect(branchLevels(flatten(roots, new Set()), [])).toEqual([0, 0, 0]);
+  });
+});
+
+describe('filterFolders', () => {
+  const entries = (list: [string, string[]][]) =>
+    list.map(([id, path]): [string, { node: { name: string }; path: string[] }] => [
+      id,
+      { node: { name: path[path.length - 1] }, path },
+    ]);
+  const lib = entries([
+    ['1', ['Master Artists', 'Other Sorted', 'Alfons_Mucha']],
+    ['2', ['Master Artists', 'alphonse Mucha']],
+    ['3', ['Master Artists', 'alphonse Mucha', 'Mucha Foundation_files']],
+    ['4', ['Mucha']],
+    ['5', ['Sketches']],
+  ]);
+  it('puts names that start with the text first, then shallower ones, any case', () => {
+    const { hits, total } = filterFolders(lib, ' MUCHA ');
+    expect(total).toBe(4);
+    expect(hits.map((h) => h.id)).toEqual(['4', '3', '2', '1']);
+    expect(hits[1]).toMatchObject({ parents: ['Master Artists', 'alphonse Mucha'], at: 0 });
+    expect(hits[3].at).toBe(7);
+  });
+  it('caps the list but counts every match', () => {
+    expect(filterFolders(lib, 'mucha', 2)).toMatchObject({ total: 4 });
+    expect(filterFolders(lib, 'mucha', 2).hits).toHaveLength(2);
+    expect(filterFolders(lib, '  ').total).toBe(0);
+  });
+});
+
+describe('tailStart', () => {
+  it('keeps the ending of long names and leaves short ones whole', () => {
+    const long = 'drive-download-20210929T133812Z-001';
+    expect(long.slice(tailStart(long))).toBe('133812Z-001');
+    expect(tailStart('Sketches')).toBe(8);
+    const words = 'Craig Mullins (from andrew)';
+    expect(words.slice(tailStart(words))).toBe('andrew)');
+    expect(shorten(long)).toBe('drive-download…133812Z-001');
+    expect(shorten('Other Sorted')).toBe('Other Sorted');
   });
 });

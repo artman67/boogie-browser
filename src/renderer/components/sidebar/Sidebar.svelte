@@ -10,6 +10,7 @@
   import LibraryHeader from './LibraryHeader.svelte';
   import Nav from './Nav.svelte';
   import QuickAccess from './QuickAccess.svelte';
+  import SidebarResize from './SidebarResize.svelte';
   import SmartFolders from './SmartFolders.svelte';
   import TagsSection from './TagsSection.svelte';
   import './sidebar.css';
@@ -42,17 +43,22 @@
 >
   <LibraryHeader />
   {#if library.state}
-    <div
-      class="sb-scroll"
-      bind:this={scroller}
-      bind:clientHeight={viewH}
-      onscroll={() => scroller && (scrollTop = scroller.scrollTop)}
-    >
-      <Nav />
-      <QuickAccess />
-      <TagsSection />
-      <SmartFolders />
-      <FolderTree {scroller} {scrollTop} {viewH} />
+    <!-- Positioned so the folder tree's "back to the current folder" pill floats over the
+         scrolling list without scrolling with it. -->
+    <div class="sb-body">
+      <div
+        class="sb-scroll"
+        bind:this={scroller}
+        bind:clientHeight={viewH}
+        onscroll={() => scroller && (scrollTop = scroller.scrollTop)}
+      >
+        <Nav />
+        <QuickAccess />
+        <TagsSection />
+        <SmartFolders />
+        <FolderTree {scroller} {scrollTop} {viewH} />
+      </div>
     </div>
   {/if}
+  <SidebarResize />
 </div>

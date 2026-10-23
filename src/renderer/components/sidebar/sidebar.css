@@ -1,10 +1,18 @@
 /* Sidebar look. Global on purpose: every sidebar component shares the same
    row, section and count styles, all under .sb so nothing leaks. */
 .sb {
+  position: relative;
   display: flex;
   flex-direction: column;
   min-height: 0;
   height: 100%;
+}
+.sb-body {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 .sb-scroll {
   flex: 1;
@@ -28,17 +36,17 @@
   white-space: nowrap;
   cursor: default;
   user-select: none;
-  transition: background 100ms ease-out;
+  transition: background-color 100ms ease-out;
 }
 .sb-row:hover {
-  background: var(--hov);
+  background-color: var(--hov);
 }
 button.sb-row {
   width: calc(100% - 16px);
   text-align: left;
 }
 .sb-row.sel {
-  background: var(--bls);
+  background-color: var(--bls);
 }
 .sb-row.sel .sb-ct {
   color: var(--link);
@@ -77,9 +85,83 @@ button.sb-row {
 /* folder tree rows are a little tighter and indent 16px per level. Past level 6 the indent
    shrinks to 6px so a 13-deep folder (the Art library has them) still has room for its name. */
 .sb-row.tree {
+  --d: 0;
+  --b: 0;
   height: 26px;
   gap: 7px;
-  padding-left: calc(6px + min(var(--d, 0), 6) * 16px + max(var(--d, 0) - 6, 0) * 6px);
+  padding-left: calc(6px + min(var(--d), 6) * 16px + max(var(--d) - 6, 0) * 6px);
+  /* Guide lines: one faint line per indent level, under each parent's chevron (13px in, then
+     16px apart, 6px apart past level 6). The first --b levels lead to the current folder and are
+     blue (tree.ts branchLevels). Backgrounds, not tall elements, so the virtual window keeps them. */
+  background-image:
+    repeating-linear-gradient(90deg, var(--rail-on) 0 1px, transparent 1px 16px),
+    repeating-linear-gradient(90deg, var(--rail-on) 0 1px, transparent 1px 6px),
+    repeating-linear-gradient(90deg, var(--rail) 0 1px, transparent 1px 16px),
+    repeating-linear-gradient(90deg, var(--rail) 0 1px, transparent 1px 6px);
+  background-repeat: no-repeat;
+  background-position:
+    13px 0,
+    109px 0,
+    13px 0,
+    109px 0;
+  background-size:
+    calc(min(var(--b), 6) * 16px) 100%,
+    calc(max(var(--b) - 6, 0) * 6px) 100%,
+    calc(min(var(--d), 6) * 16px) 100%,
+    calc(max(var(--d) - 6, 0) * 6px) 100%;
+  --rail: var(--chip-line);
+  --rail-on: color-mix(in srgb, var(--bl-soft) 60%, transparent);
+}
+/* Top-level folders read as sections. */
+.sb-row.tree.top {
+  font-weight: 600;
+  font-size: 13.5px;
+}
+/* The parents of the folder you are in. */
+.sb-row.tree.anc .fn,
+.sb-row.tree.anc > .sb-car {
+  color: var(--link);
+}
+/* The folder you are in: solid accent, with an edge bar in the sidebar's margin. */
+.sb-row.tree.sel {
+  background-color: var(--bl);
+  background-image: none;
+  color: white;
+  font-weight: 600;
+  --glyph: white;
+}
+.sb-row.tree.sel .sb-ct,
+.sb-row.tree.sel .lk,
+.sb-row.tree.sel > .sb-car {
+  color: color-mix(in srgb, white 85%, transparent);
+}
+.sb-row.tree.sel:not(.dz-before)::before {
+  content: '';
+  position: absolute;
+  left: -8px;
+  top: 4px;
+  bottom: 4px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--bl-soft);
+}
+/* The keyboard cursor: a ring, never a fill, so it never reads as the current folder. */
+.sb-row.tree.cur {
+  box-shadow: inset 0 0 0 1.5px var(--bl-soft);
+}
+/* A long name split in two: the start gives way (with an ellipsis), the ending always shows. */
+.sb-row .fn.split {
+  display: flex;
+}
+.fn.split > .fh {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: pre;
+}
+.fn.split > .ft {
+  flex: none;
+  white-space: pre;
 }
 .sb-car {
   width: 14px;
@@ -110,7 +192,7 @@ button.sb-car:hover {
 
 /* drag and drop targets */
 .sb-row.dz-inside {
-  background: var(--bls);
+  background-color: var(--bls);
   box-shadow: inset 0 0 0 1px var(--bl);
 }
 .sb-row.dz-before::before,
