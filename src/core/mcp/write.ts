@@ -29,6 +29,11 @@ export interface Draft {
   emptyNote?: string;
   /** Anything else that should invalidate a plan when it changes (file sizes of imports). */
   digestExtra?: unknown;
+  /**
+   * Extra detail for a dry run only (it never runs at apply, and isn't part of the digest): for
+   * checks too slow to repeat on every apply, like hashing files for an import preview.
+   */
+  preview?(): Promise<{ summary?: string; changes?: Change[] }>;
   /** `progress(done)` updates the status strip; most writes are one call and ignore it. */
   apply(progress: (done: number) => void): Promise<Applied>;
 }
@@ -36,7 +41,7 @@ export interface Draft {
 export interface WriteMode {
   tool: string;
   /** The tool's arguments without plan_id and dry_run: a plan only applies to exactly these. */
-  args: unknown;
+  args: Record<string, unknown>;
   kind: 'additive' | 'changing';
   dryRun?: boolean;
   planId?: string;
@@ -75,22 +80,32 @@ export async function runWrite(
 ): Promise<Record<string, unknown>> {
   const { plans } = call.state;
   const argsHash = hashOf(mode.args);
-  const plan = mode.planId ? plans.check(mode.planId, mode.tool, argsHash, lib.ref.id) : null;
+  const plan = mode.planId
+    ? plans.check(mode.planId, mode.tool, mode.args, argsHash, lib.ref.id)
+    : null;
 
   const { draft, digest } = await draftOf(build);
   if (draft.changes.length === 0) return nothingToDo(draft);
   const needsPlan = mode.kind === 'changing' || draft.itemCount > DIRECT_WRITE_LIMIT;
 
   if (!plan && (needsPlan || mode.dryRun)) {
-    const minted = plans.mint({ tool: mode.tool, argsHash, libraryId: lib.ref.id, digest });
+    const shown = { summary: draft.summary, changes: draft.changes, ...(await draft.preview?.()) };
+    const minted = plans.mint({
+      tool: mode.tool,
+      argsHash,
+      args: mode.args,
+      libraryId: lib.ref.id,
+      digest,
+      changes: shown.changes,
+    });
     return {
       status: 'dry_run',
-      summary: draft.summary,
+      summary: shown.summary,
       item_count: draft.itemCount,
       plan_id: minted.id,
       plan_expires_at: iso(minted.expiresAt),
       how_to_apply: `Nothing was changed. To apply exactly this, call ${mode.tool} again with the same arguments plus plan_id "${minted.id}" (valid 15 minutes).`,
-      ...displayChanges(draft.changes),
+      ...displayChanges(shown.changes),
     };
   }
 
@@ -100,7 +115,7 @@ export async function runWrite(
     if (plan) {
       if (plan.digest !== digest) {
         throw new UserError(
-          'The library changed since the dry run (these items were edited in the meantime). Nothing was applied. Call the tool again without plan_id to see the current change list.',
+          'The library changed since the dry run (these items or folders were edited in the meantime, possibly by another change you applied). Nothing was applied. Call the tool again without plan_id to see the current change list, then apply that plan.',
         );
       }
       if (!plans.take(plan.id)) throw new UserError('That plan was already applied.');

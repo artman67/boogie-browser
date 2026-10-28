@@ -1028,7 +1028,7 @@ describe('password-locked folders (Boogie never unlocks)', () => {
   it('leaves them out of the counts and tags; folder badges still count them, like Eagle', () => {
     const c = s.ix.counts();
     expect(c).toMatchObject({ all: 2, untagged: 1, uncategorized: 1, trash: 1, totalSize: 90 });
-    expect(c.folders.FLOCK).toEqual({ own: 2, deep: 3 });
+    expect(c.folders.FLOCK).toMatchObject({ own: 2, deep: 3 });
     expect(s.ix.tags().find((t) => t.name === 't')?.count).toBe(1);
     expect(s.engine().smartFolderCounts()).toEqual({ SF1: 1 });
   });

@@ -8,6 +8,7 @@ import { registerItemWriteTools } from './tools/itemWrites';
 import { registerJobTools } from './tools/jobs';
 import { registerLibraryTools } from './tools/library';
 import { registerOrganizeTools } from './tools/organize';
+import { registerPlanTool } from './tools/plans';
 import { registerSmartTools } from './tools/smart';
 import { registerTagGroupTools } from './tools/tagGroups';
 import { registerUndoTool } from './tools/undo';
@@ -19,6 +20,7 @@ const SERVER_INSTRUCTIONS = `Boogie Browser edits real Eagle libraries in place.
 - Prefer small batches. Anything that removes or renames things, and any write to more than 50 items, is a two step call: call it once to get the exact change list and a plan_id, check it, then call again with the same arguments plus plan_id. Plans last 15 minutes and cover at most 500 items.
 - Nothing is ever deleted for good from here. move_to_trash is recoverable. Never try to delete files or empty the trash.
 - Every write returns a group_id. undo reverts it. Tag groups and Quick Access edits may be overwritten by the partner's Eagle.
+- Before removing folders, check items_only_here (list_folders) or left_in_no_folder (the dry run). Don't read library files yourself; if a tool can't answer something, tell the user.
 - Ids come from the tools (search_items, list_folders). Do not invent them. If a tool says the library is read-only, stop and tell the user.`;
 
 /** `client` is the User-Agent product (lowercased); Pause keys on it (kit.ts McpState.pausedAs). */
@@ -37,5 +39,6 @@ export function buildMcpServer(host: CoreHost, clientName = 'Agent', client = ''
   registerImportTools(tool);
   registerJobTools(tool);
   registerUndoTool(tool);
+  registerPlanTool(tool);
   return server;
 }

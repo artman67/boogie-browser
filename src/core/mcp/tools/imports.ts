@@ -227,6 +227,8 @@ export function registerImportTools(tool: Tool): void {
         async () => {
           const blocked = await blockedRoots(call, lib.ref.path);
           const files = await Promise.all(list.map((p) => checkImportPath(p, blocked)));
+          const where = rest.folder ? ` (folder ${folders.resolve(rest.folder).path})` : '';
+          const summary = `Import ${files.length === 1 ? '1 file' : `${files.length} files`} into the library${where}`;
           const changes: Change[] = files.map((f) => ({
             id: f.path,
             name: basename(f.path),
@@ -234,9 +236,31 @@ export function registerImportTools(tool: Tool): void {
             before: null,
             after: `new item (${f.size} bytes)`,
           }));
+          const mode = rest.on_duplicate ?? 'skip';
           return {
-            summary: `Import ${files.length === 1 ? '1 file' : `${files.length} files`} into the library${rest.folder ? ` (folder ${folders.resolve(rest.folder).path})` : ''}`,
+            summary,
             changes,
+            // The import's own duplicate check, run for the preview only: it reads every file
+            // that could match, and the import does it again anyway (keep-both skips it there).
+            preview: async () => {
+              if (mode === 'keep-both' || !call.api.findExistingFiles) return {};
+              const found = await call.api.findExistingFiles(files.map((f) => f.path));
+              const outcome = (hit: (typeof found)[number]) =>
+                !hit
+                  ? null
+                  : 'path' in hit
+                    ? `skipped: same content as ${hit.path}, earlier in this list`
+                    : mode === 'skip'
+                      ? `skipped: already in the library as ${hit.id}`
+                      : `already in the library as ${hit.id}: that item gets the folder and tags`;
+              const dupes = found.filter(Boolean).length;
+              return {
+                summary: dupes
+                  ? `${summary}; ${dupes} already in the library or repeated (on_duplicate: ${mode})`
+                  : summary,
+                changes: changes.map((c, i) => ({ ...c, after: outcome(found[i]) ?? c.after })),
+              };
+            },
             itemCount: files.length,
             activity: `Importing ${files.length} files`,
             digestExtra: files,

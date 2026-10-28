@@ -135,6 +135,12 @@ export interface CoreApi {
 
   // ── Import ──
   importPaths(paths: string[], opts?: ImportOptions): Promise<{ jobId: string }>;
+  /**
+   * What an import of these files would call duplicates (same size, type and md5), for previews:
+   * per file, a live item it matches (`id`), an earlier file in this same list (`path`), or null.
+   * Reads the files, writes nothing.
+   */
+  findExistingFiles?(paths: string[]): Promise<({ id: string } | { path: string } | null)[]>;
   importUrl(
     url: string,
     opts?: ImportOptions & { referer?: string; headers?: Record<string, string> },

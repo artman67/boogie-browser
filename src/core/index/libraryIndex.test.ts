@@ -189,7 +189,7 @@ describe('folders, counts and search rows', () => {
       ],
     });
     const items = [
-      makeItem('i1', { folders: ['A1', 'A2'] }), // two sibling folders: counted once in A
+      makeItem('i1', { folders: ['A1', 'A2'] }), // two sibling folders: counted once in A, only in A
       makeItem('i2', { folders: ['A', 'A2x'] }), // parent and grandchild: counted once in A
       makeItem('i3', { folders: ['A2x'] }),
       makeItem('i4', { folders: ['GHOST'] }), // unknown folder id: uncategorized
@@ -209,11 +209,11 @@ describe('folders, counts and search rows', () => {
       smartFolders: {},
       totalSize: 5 * 1000, // live items only (makeItem's size is 1000)
     });
-    expect(counts.folders.A).toEqual({ own: 1, deep: 3 });
-    expect(counts.folders.A1).toEqual({ own: 1, deep: 1 });
-    expect(counts.folders.A2).toEqual({ own: 1, deep: 3 });
-    expect(counts.folders.A2x).toEqual({ own: 2, deep: 2 });
-    expect(counts.folders.B).toEqual({ own: 0, deep: 0 });
+    expect(counts.folders.A).toEqual({ own: 1, deep: 3, only: 3 });
+    expect(counts.folders.A1).toEqual({ own: 1, deep: 1, only: 0 });
+    expect(counts.folders.A2).toEqual({ own: 1, deep: 3, only: 1 });
+    expect(counts.folders.A2x).toEqual({ own: 2, deep: 2, only: 1 });
+    expect(counts.folders.B).toEqual({ own: 0, deep: 0, only: 0 });
     // And it agrees with the plain brute-force computation.
     expect(counts).toMatchObject(bruteCounts(items, lib.rootRecord));
   });

@@ -41,23 +41,46 @@ export function computeCounts(st: Statements, folderNumbers: FolderNumbers): Cou
   // Per item, its folders that exist each count it once as their own, and every ancestor of any
   // of them counts it once deep. Folders are numbered (tree order) so this runs on typed arrays:
   // item_folders is read in item order, so `mark` (the last item an ancestor counted) dedupes.
+  // `only`: an ancestor reached from every one of the item's k folders (hits === k) holds them
+  // all, so deleting it leaves the item in no folder. Checked when the item's rows end.
   const { ids, number, ancestors } = folderNumbers;
   const own = new Int32Array(ids.length);
   const deep = new Int32Array(ids.length);
+  const only = new Int32Array(ids.length);
+  const hits = new Int32Array(ids.length);
   const mark = new Int32Array(ids.length).fill(-1);
   const trashed = new Set(st.trashedRowids.all() as number[]);
+  let current = -1;
+  let first = -1;
+  let k = 0;
+  const settle = () => {
+    if (first >= 0) for (const a of ancestors[first]) if (hits[a] === k) only[a]++;
+  };
   for (const [rowid, folderId] of st.folderPairs.all() as [number, string][]) {
     const f = number.get(folderId);
     if (f === undefined || trashed.has(rowid)) continue;
+    if (rowid !== current) {
+      settle();
+      current = rowid;
+      first = f;
+      k = 0;
+    }
+    k++;
     own[f]++;
     for (const a of ancestors[f]) {
-      if (mark[a] === rowid) continue;
+      if (mark[a] === rowid) {
+        hits[a]++;
+        continue;
+      }
       mark[a] = rowid;
+      hits[a] = 1;
       deep[a]++;
     }
   }
+  settle();
   const folders: Counts['folders'] = {};
-  for (let f = 0; f < ids.length; f++) folders[ids[f]] = { own: own[f], deep: deep[f] };
+  for (let f = 0; f < ids.length; f++)
+    folders[ids[f]] = { own: own[f], deep: deep[f], only: only[f] };
 
   // Folder badges keep counting locked items (Eagle shows how many a locked folder holds).
   if (hasLocked(st)) {

@@ -14,26 +14,103 @@ export interface Change {
   field: string;
   before: unknown;
   after: unknown;
+  /** The item is in the trash: taking it out of folders changes nothing the user sees. */
+  in_trash?: true;
 }
 
-const CHANGES_SHOWN = 100;
+export const CHANGES_SHOWN = 20;
+const GROUPS_SHOWN = 10;
+const EXAMPLES = 3;
 const CLIP = 200;
 
 const clip = (v: unknown): unknown =>
   typeof v === 'string' && v.length > CLIP ? v.slice(0, CLIP) + '...' : v;
 
-/** What the agent is shown: at most 100 rows, long text clipped. The digest uses the full list. */
-export function displayChanges(changes: Change[]): {
-  changes: Change[];
-  changes_total: number;
-  changes_truncated: boolean;
-} {
+export const clipped = (c: Change): Change => ({
+  ...c,
+  before: clip(c.before),
+  after: clip(c.after),
+});
+
+interface Group {
+  field: string;
+  before: unknown;
+  after: unknown;
+  in_trash?: true;
+  count: number;
+  /** "name (id)": names alone repeat when items are copies. */
+  examples: string[];
+}
+
+/** Rows that make the same change (same field, before and after) folded into one line each. */
+function groupChanges(changes: Change[]): Group[] {
+  const groups = new Map<string, Group>();
+  for (const c of changes) {
+    const key = JSON.stringify([c.field, c.before, c.after, c.in_trash ?? false]);
+    let g = groups.get(key);
+    if (!g) {
+      g = { field: c.field, before: c.before, after: c.after, count: 0, examples: [] };
+      if (c.in_trash) g.in_trash = true;
+      groups.set(key, g);
+    }
+    g.count++;
+    if (g.examples.length < EXAMPLES) g.examples.push(`${c.name} (${c.id})`);
+  }
+  return [...groups.values()].sort((a, b) => b.count - a.count);
+}
+
+const isList = (v: unknown): v is unknown[] => Array.isArray(v);
+
+/**
+ * Live items a change takes out of their last folder. This is the question to answer before
+ * removing folders: those items end up uncategorized (not deleted, but easy to lose track of).
+ */
+function leftInNoFolder(changes: Change[]): { count: number; examples: string[] } | null {
+  // Items this same change sends to the trash (delete_folder with delete_contents) aren't left anywhere.
+  const toTrash = new Set(
+    changes.filter((c) => c.field === 'in_trash' && c.after === true).map((c) => c.id),
+  );
+  let removes = false;
+  const left: string[] = [];
+  for (const c of changes) {
+    if (c.field !== 'folders' || !isList(c.before) || !isList(c.after)) continue;
+    if (c.after.length >= c.before.length) continue;
+    removes = true;
+    if (c.after.length === 0 && !c.in_trash && !toTrash.has(c.id)) left.push(`${c.name} (${c.id})`);
+  }
+  return removes ? { count: left.length, examples: left.slice(0, 5) } : null;
+}
+
+/**
+ * What the agent is shown: the first rows, the rows folded into groups when there are more, and
+ * how many items would be left in no folder. The digest uses the full list; plan_changes pages it.
+ */
+export function displayChanges(changes: Change[]): Record<string, unknown> {
+  const truncated = changes.length > CHANGES_SHOWN;
+  const groups = truncated ? groupChanges(changes) : [];
+  const left = leftInNoFolder(changes);
   return {
-    changes: changes
-      .slice(0, CHANGES_SHOWN)
-      .map((c) => ({ ...c, before: clip(c.before), after: clip(c.after) })),
+    changes: changes.slice(0, CHANGES_SHOWN).map(clipped),
     changes_total: changes.length,
-    changes_truncated: changes.length > CHANGES_SHOWN,
+    changes_truncated: truncated,
+    // Only worth showing when it folds something: a list of one-row groups repeats the rows.
+    ...(groups.length && groups.length < changes.length
+      ? {
+          change_groups: groups
+            .slice(0, GROUPS_SHOWN)
+            .map((g) => ({ ...g, before: clip(g.before), after: clip(g.after) })),
+          change_groups_total: groups.length,
+        }
+      : {}),
+    ...(left
+      ? {
+          left_in_no_folder: left.count,
+          ...(left.count ? { left_in_no_folder_examples: left.examples } : {}),
+        }
+      : {}),
+    ...(truncated
+      ? { more_changes: 'plan_changes with this plan_id lists every row (offset, limit).' }
+      : {}),
   };
 }
 
@@ -45,7 +122,15 @@ function recorder(out: Change[], item: Item) {
   return (field: string, before: unknown, after: unknown) => {
     const same =
       Array.isArray(before) && Array.isArray(after) ? sameList(before, after) : before === after;
-    if (!same) out.push({ id: item.id, name: item.name, field, before, after });
+    if (same) return;
+    out.push({
+      id: item.id,
+      name: item.name,
+      field,
+      before,
+      after,
+      ...(item.isDeleted ? { in_trash: true as const } : {}),
+    });
   };
 }
 
@@ -66,11 +151,7 @@ export function diffPatch(item: Item, patch: ItemPatch, folders: FolderIndex): C
     if (patch.removeFolders) folderIds = folderIds.filter((f) => !patch.removeFolders!.includes(f));
     if (patch.addFolders) folderIds = uniq([...folderIds, ...patch.addFolders]);
   }
-  push(
-    'folders',
-    item.folders.map((f) => folders.pathOf(f)),
-    folderIds.map((f) => folders.pathOf(f)),
-  );
+  push('folders', folders.existingPaths(item.folders), folders.existingPaths(folderIds));
 
   let tags = item.tags;
   if (patch.setTags) tags = uniq(patch.setTags);

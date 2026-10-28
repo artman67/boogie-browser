@@ -25,6 +25,51 @@ function tooMany(count: number, how: string): UserError {
   );
 }
 
+const lockedError = (where: string) =>
+  new UserError(
+    `${where} holds items in a password-locked folder, which can't be previewed from here. Ask the user to do this in the app.`,
+  );
+
+/**
+ * A folder tree too big to delete in one go: say which subfolders fit under the limit, biggest
+ * first, so the agent can delete those and then the rest. The limit stays: each apply is one undo
+ * step and one burst of file changes for the partner's Dropbox to sync.
+ */
+export async function tooBigToDelete(
+  api: CoreApi,
+  idx: FolderIndex,
+  id: string,
+  count: number,
+  trashToo = false,
+): Promise<UserError> {
+  const { folders } = await api.getCounts();
+  const fits = idx
+    .subtreeIds(id)
+    .filter((sub) => sub !== id)
+    .map((sub) => ({ sub, n: folders[sub]?.deep ?? 0 }))
+    .filter(({ n }) => n > 0 && n <= MAX_ITEMS_PER_APPLY)
+    // Only the topmost subfolders that fit: deleting one takes its own subfolders with it.
+    .filter(({ sub }, _i, all) => {
+      const parent = idx.get(sub)?.parentId;
+      return !all.some((o) => o.sub === parent);
+    })
+    .sort((a, b) => b.n - a.n)
+    .slice(0, 10);
+  const same = trashToo ? ' (each with delete_contents true, as here)' : '';
+  // Trashed items keep their folders and count too, so they have to come out as well; with
+  // delete_contents, trash the ones in no other folder first so they don't end up uncategorized.
+  const removeFirst = `take every item out of it with remove_from_folders in batches of 500 or fewer, including those already in the trash (search_items with scope "trash")${trashToo ? ', after moving the ones in no other folder to the trash with move_to_trash' : ''}, then delete the folder`;
+  const freed = fits.reduce((sum, f) => sum + f.n, 0);
+  const how = !fits.length
+    ? `To split it, ${removeFirst}.`
+    : `Delete these subfolders first${same}, then this one (counts leave out trashed items, which also count toward the limit): ${fits
+        .map(({ sub, n }) => `${idx.pathOf(sub)} (${sub}, ${plural(n, 'item')})`)
+        .join(
+          '; ',
+        )}.${count - freed > MAX_ITEMS_PER_APPLY ? ` That still leaves over ${MAX_ITEMS_PER_APPLY}: then ${removeFirst}.` : ''}`;
+  return tooMany(count, how);
+}
+
 export function registerOrganizeTools(tool: Tool): void {
   tool(
     'create_folder',
@@ -212,25 +257,24 @@ export function registerOrganizeTools(tool: Tool): void {
         throw new UserError(
           `A folder cannot move into itself or one of its own subfolders ("${f.path}" into "${parent.path}").`,
         );
-      const oldSiblings = (f.parentId ? idx.get(f.parentId)!.node.children : lib.folders).map(
-        (n) => n.id,
-      );
       const newSiblings = (parent ? parent.node.children : lib.folders)
         .map((n) => n.id)
         .filter((id) => id !== f.id);
       const target = Math.min(position ?? newSiblings.length, newSiblings.length);
-      const before = {
-        parent: f.parentId ? idx.pathOf(f.parentId) : null,
-        position: oldSiblings.indexOf(f.id),
-      };
-      const after = { parent: parent?.path ?? null, position: target };
-      const same = f.parentId === (parent?.id ?? null) && before.position === target;
+      const oldSiblings = (f.parentId ? idx.get(f.parentId)!.node.children : lib.folders).map(
+        (n) => n.id,
+      );
+      const same = f.parentId === (parent?.id ?? null) && oldSiblings.indexOf(f.id) === target;
+      // The plan holds what the agent asked for ("last" when no position), not the slot that works
+      // out to now: other folders moving in or out of these parents must not make it stale.
+      const before = { parent: f.parentId ? idx.pathOf(f.parentId) : null };
+      const after = { parent: parent?.path ?? null, position: position ?? 'last' };
       return runWrite(
         call,
         lib,
         {
           tool: 'move_folder',
-          args: { folder: f.id, new_parent: parent?.id ?? null, position: target },
+          args: { folder: f.id, new_parent: parent?.id ?? null, position: position ?? null },
           kind: 'changing',
           planId: plan_id,
         },
@@ -278,16 +322,20 @@ export function registerOrganizeTools(tool: Tool): void {
           planId: plan_id,
         },
         async () => {
-          const ids = await allIdsMatching(call.api, {
-            folders: { include: [...doomed], exclude: [] },
-          });
-          if (ids.length > MAX_ITEMS_PER_APPLY) {
-            throw tooMany(
-              ids.length,
-              'Take items out first with remove_from_folders in batches of 500 or fewer, then delete the folder.',
-            );
-          }
-          const items = await fetchItems(call.api, ids);
+          const filter: FilterSpec = { folders: { include: [...doomed], exclude: [] } };
+          const ids = await allIdsMatching(call.api, filter);
+          // Searches hide items in password-locked folders (anywhere in the tree), but the delete
+          // still edits them. Folder counts include them: fewer found means some are hidden.
+          const live = (await call.api.query({ scope: { kind: 'all' }, filter, sort: null })).ids;
+          if (live.length < ((await call.api.getCounts()).folders[f.id]?.deep ?? 0))
+            throw lockedError(f.path);
+          if (ids.length > MAX_ITEMS_PER_APPLY)
+            throw await tooBigToDelete(call.api, idx, f.id, ids.length, trashToo);
+          // Live items first: trashed ones only matter for the count, so they shouldn't fill the preview.
+          const items = (await fetchItems(call.api, ids)).sort(
+            (a, b) => Number(a.isDeleted) - Number(b.isDeleted),
+          );
+          const trashed = items.filter((it) => it.isDeleted).length;
           const changes: Change[] = [
             {
               id: f.id,
@@ -303,9 +351,11 @@ export function registerOrganizeTools(tool: Tool): void {
               id: it.id,
               name: it.name,
               field: 'folders',
-              before: it.folders.map((id) => idx.pathOf(id)),
-              after: left.map((id) => idx.pathOf(id)),
+              before: idx.existingPaths(it.folders),
+              after: idx.existingPaths(left),
+              ...(it.isDeleted ? { in_trash: true as const } : {}),
             });
+            // Same rule as the core: any folder id left, even one that is gone, keeps it out of the trash.
             if (trashToo && left.length === 0 && !it.isDeleted)
               changes.push({
                 id: it.id,
@@ -316,7 +366,7 @@ export function registerOrganizeTools(tool: Tool): void {
               });
           }
           return {
-            summary: `Delete folder "${f.path}"${doomed.size > 1 ? ` and ${plural(doomed.size - 1, 'subfolder')}` : ''}; ${plural(items.length, 'item')} taken out of it${trashToo ? ', those in no other folder go to the trash' : ''}`,
+            summary: `Delete folder "${f.path}"${doomed.size > 1 ? ` and ${plural(doomed.size - 1, 'subfolder')}` : ''}; ${plural(items.length, 'item')} taken out of it${trashed ? ` (${trashed} of them already in the trash)` : ''}${trashToo ? ', those in no other folder go to the trash' : ''}`,
             changes,
             itemCount: items.length,
             activity: `Deleting folder ${f.name}`,

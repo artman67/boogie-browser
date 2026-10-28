@@ -377,7 +377,7 @@ describe.skipIf(!sandboxAvailable)('editing', () => {
 
     await s.host.api.updateItems([a, b, c, d], { addFolders: [child.id] });
     expect(s.read(a).tags).toEqual(expect.arrayContaining(['round two', 'finals']));
-    expect((await s.host.api.getCounts()).folders[parent.id]).toEqual({ own: 0, deep: 4 });
+    expect((await s.host.api.getCounts()).folders[parent.id]).toMatchObject({ own: 0, deep: 4 });
     expect((await s.host.api.listHistory())[0].label).toBe('Added 4 items to “Round two”');
 
     const scope = { kind: 'folder', id: child.id, includeSubfolders: false } as const;
@@ -674,7 +674,7 @@ describe.skipIf(!sandboxAvailable)('imports and duplicates', () => {
     )!;
     expect(pack.children.map((f) => f.name).sort()).toEqual(['Faces', 'Hands']);
     const hands = pack.children.find((f) => f.name === 'Hands')!;
-    expect((await s.host.api.getCounts()).folders[hands.id]).toEqual({ own: 1, deep: 1 });
+    expect((await s.host.api.getCounts()).folders[hands.id]).toMatchObject({ own: 1, deep: 1 });
     await s.host.api.updateFolder(hands.id, { name: 'Hands and feet' });
   });
 

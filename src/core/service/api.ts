@@ -93,6 +93,7 @@ export function makeApi(svc: CoreService, actor: Actor, libraryId?: string): Cor
 
     // ── Import ──
     importPaths: async (paths, opts) => imports.importPaths(S(), actor, paths, opts),
+    findExistingFiles: async (paths) => imports.findExistingFiles(S(), paths),
     importUrl: async (url, opts) => imports.importUrl(S(), actor, url, opts),
     importBytes: async (bytes, fileName, opts) =>
       imports.importBytes(S(), actor, bytes, fileName, opts),

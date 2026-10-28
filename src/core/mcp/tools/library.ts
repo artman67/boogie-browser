@@ -89,7 +89,7 @@ export function registerLibraryTools(tool: Tool): void {
     {
       title: 'List folders',
       description:
-        'The folder tree, depth first, with ids, paths ("Parent / Child"), item counts and auto-tags.',
+        'The folder tree, depth first, with ids, paths ("Parent / Child"), item counts and auto-tags. items_only_here: in no folder outside it.',
       input: z.strictObject({
         library,
         parent: z.string().optional().describe('Only this folder and what is under it.'),
@@ -116,6 +116,7 @@ export function registerLibraryTools(tool: Tool): void {
           depth: e.depth,
           items: counts.folders[e.id]?.own ?? 0,
           items_including_subfolders: counts.folders[e.id]?.deep ?? 0,
+          items_only_here: counts.folders[e.id]?.only ?? 0,
           auto_tags: e.node.tags,
           ...(e.node.description ? { description: e.node.description } : {}),
         })),
