@@ -6,7 +6,7 @@
   import Ban from '@lucide/svelte/icons/ban';
   import { library } from '../../lib/stores/library.svelte';
   import { view } from '../../lib/stores/view.svelte';
-  import { fuzzy } from '../../lib/fuzzy';
+  import { rank } from '../../../shared/match';
   import { starredTags } from '../../lib/tags';
   import { toggleIncluded } from './chips';
   import Popover from './Popover.svelte';
@@ -17,6 +17,7 @@
     id: string;
     label: string;
     sub: string;
+    parents: string[];
     count: number;
   }
 
@@ -35,37 +36,40 @@
 
   const all = $derived.by<Entry[]>(() => {
     if (kind === 'tags')
-      return library.tags.map((t) => ({ id: t.name, label: t.name, sub: '', count: t.count }));
+      return library.tags.map((t) => ({
+        id: t.name,
+        label: t.name,
+        sub: '',
+        parents: [],
+        count: t.count,
+      }));
     return [...library.folders].map(([id, f]) => ({
       id,
       label: f.node.name,
       sub: f.path.slice(0, -1).join(' › '),
+      parents: f.path.slice(0, -1),
       count: library.counts?.folders[id]?.deep ?? 0,
     }));
   });
 
   const rows = $derived.by(() => {
     const q = search.trim();
-    let list: { e: Entry; score: number }[];
-    if (q) {
-      list = [];
-      for (const e of all) {
-        const hit = fuzzy(q, e.label);
-        if (hit) list.push({ e, score: hit.score });
-      }
-      list.sort((a, b) => b.score - a.score || b.e.count - a.e.count);
-    } else {
-      list = all
-        .map((e) => ({ e, score: 0 }))
-        .sort(
-          (a, b) =>
-            Number(pinned.has(b.e.id)) - Number(pinned.has(a.e.id)) ||
-            Number(starred.has(b.e.id)) - Number(starred.has(a.e.id)) ||
-            b.e.count - a.e.count ||
-            a.e.label.localeCompare(b.e.label),
-        );
-    }
-    return list.slice(0, 150).map((x) => x.e);
+    if (q)
+      return rank(
+        q,
+        all,
+        (e) => ({ label: e.label, parents: e.parents, weight: e.count }),
+        150,
+      ).map((r) => r.item);
+    return [...all]
+      .sort(
+        (a, b) =>
+          Number(pinned.has(b.id)) - Number(pinned.has(a.id)) ||
+          Number(starred.has(b.id)) - Number(starred.has(a.id)) ||
+          b.count - a.count ||
+          a.label.localeCompare(b.label),
+      )
+      .slice(0, 150);
   });
 
   $effect(() => {

@@ -1,5 +1,6 @@
 // Pure tree logic for the sidebar: flattening, drop targets, sibling moves, virtual window.
 // No Svelte and no DOM here so it can be unit tested.
+import { rank, segments, type Segment } from '../../../shared/match';
 
 export const ROW_H = 26;
 /** Above this many visible rows the folder list only renders the rows in view. */
@@ -212,31 +213,33 @@ export interface FilterHit {
   name: string;
   /** Parent names, top level first. */
   parents: string[];
-  /** Where the typed text starts in the name. */
-  at: number;
+  /** The name in matched and plain runs. */
+  segs: Segment[];
 }
 
 /**
- * Folders whose name contains `query` (any case). Names that start with it come first, then
- * shallower folders, then tree order. Returns the best `limit` and how many matched in all.
+ * Folders matching `query` by the shared rules (src/shared/match.ts), best first; `weight` (item
+ * counts) breaks ties. Returns the best `limit` and how many matched in all.
  */
 export function filterFolders(
   folders: Iterable<[string, { node: { name: string }; path: string[] }]>,
   query: string,
   limit = 50,
+  weight: (id: string) => number = () => 0,
 ): { hits: FilterHit[]; total: number } {
-  const q = query.trim().toLowerCase();
-  if (!q) return { hits: [], total: 0 };
-  const all: (FilterHit & { depth: number })[] = [];
-  for (const [id, f] of folders) {
-    const at = f.node.name.toLowerCase().indexOf(q);
-    if (at >= 0)
-      all.push({ id, name: f.node.name, parents: f.path.slice(0, -1), at, depth: f.path.length });
-  }
-  // Array.sort is stable, so equal folders keep tree order.
-  all.sort((a, b) => Number(a.at > 0) - Number(b.at > 0) || a.depth - b.depth);
+  if (!query.trim()) return { hits: [], total: 0 };
+  const all = rank(query, folders, ([id, f]) => ({
+    label: f.node.name,
+    parents: f.path.slice(0, -1),
+    weight: weight(id),
+  }));
   return {
-    hits: all.slice(0, limit).map(({ depth: _, ...h }) => h),
+    hits: all.slice(0, limit).map(({ item: [id, f], hit }) => ({
+      id,
+      name: f.node.name,
+      parents: f.path.slice(0, -1),
+      segs: segments(f.node.name, hit.positions),
+    })),
     total: all.length,
   };
 }

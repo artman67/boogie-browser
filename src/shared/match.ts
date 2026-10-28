@@ -105,15 +105,20 @@ function matchWord(
     else if (w.text.startsWith(t)) take(START, w.at.slice(0, t.length), k);
   });
   if (best) return best;
-  // Inside a word, or across words run together ("sargentnotes", "draperydrawing").
+  const joined = ws.map((w) => w.text).join('');
+  const atAll = () => ws.flatMap((w) => w.at);
+  // From the start of a word on into the next ones, typed without the break ("iph" for
+  // "iPhone", "draperydraw" for "DraperyDrawing").
+  for (let k = 0, from = 0; k < ws.length; from += ws[k++].text.length)
+    if (joined.startsWith(t, from))
+      return { score: START, at: atAll().slice(from, from + t.length), word: k };
+  // Inside a word, or across words run together ("sargentnotes"), with 4+ letters.
   if (t.length >= 4 || UNSPACED.test(t)) {
-    const joined = ws.map((w) => w.text).join('');
     const from = joined.indexOf(t);
     if (from >= 0) {
-      const at = ws.flatMap((w) => w.at).slice(from, from + t.length);
       let k = 0;
       for (let n = 0; k < ws.length && n + ws[k].text.length <= from; k++) n += ws[k].text.length;
-      return { score: INSIDE, at, word: k };
+      return { score: INSIDE, at: atAll().slice(from, from + t.length), word: k };
     }
   }
   if (typos && t.length >= 5)

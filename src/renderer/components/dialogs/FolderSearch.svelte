@@ -29,14 +29,14 @@
   onMount(() => box?.focus());
 
   const hits = $derived(searchFolders(query, 50));
-  const rows = $derived<{ id: string | null; path: string; segs: (typeof hits)[number]['segs'] }[]>(
-    [
-      ...(none && !query.trim()
-        ? [{ id: null, path: none, segs: [{ text: none, hit: false }] }]
-        : []),
-      ...hits,
-    ],
-  );
+  const rows = $derived<
+    { id: string | null; path: string; where: string; segs: (typeof hits)[number]['segs'] }[]
+  >([
+    ...(none && !query.trim()
+      ? [{ id: null, path: none, where: '', segs: [{ text: none, hit: false }] }]
+      : []),
+    ...hits,
+  ]);
 
   function key(e: KeyboardEvent) {
     if (e.key === 'ArrowDown') hi = Math.min(hi + 1, rows.length - 1);
@@ -79,6 +79,7 @@
             >{#each r.segs as s, j (j)}{#if s.hit}<mark>{s.text}</mark
                 >{:else}{s.text}{/if}{/each}</span
           >
+          {#if r.where}<span class="w">{r.where}</span>{/if}
         </button>
       </li>
     {:else}
@@ -131,6 +132,16 @@
     border-color: var(--bl);
   }
   .p {
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .w {
+    flex: 1 1 0;
+    min-width: 0;
+    color: var(--fa);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;

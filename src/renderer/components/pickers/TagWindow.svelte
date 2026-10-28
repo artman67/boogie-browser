@@ -8,7 +8,7 @@
   import { api } from '../../lib/api';
   import { editItems, fail, readOnlyTip } from '../../lib/edit';
   import { plural, quoted } from '../../lib/format';
-  import { fuzzy, segments, type Segment } from '../../lib/fuzzy';
+  import { match, segments, type Segment } from '../../../shared/match';
   import { pushRecent, readList } from '../../lib/storage';
   import { canonicalTag, recentTags, starredTags, tagExists } from '../../lib/tags';
   import { items } from '../../lib/stores/items.svelte';
@@ -91,7 +91,7 @@
       }
       const q = text.trim();
       const canon = canonicalTag(q);
-      if (tagExists(canon)) push(canon, 'Matches', fuzzy(q, canon)?.positions);
+      if (tagExists(canon)) push(canon, 'Matches', match(q, canon)?.positions);
       else
         out.push({
           name: q,
@@ -102,7 +102,7 @@
           create: true,
           section: 'Matches',
         });
-      for (const s of sugg) push(s.label, 'Matches', fuzzy(q, s.label)?.positions);
+      for (const s of sugg) push(s.label, 'Matches', match(q, s.label)?.positions);
       return out;
     }
     [...have.keys()]

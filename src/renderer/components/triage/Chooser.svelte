@@ -2,6 +2,7 @@
   // Pick a folder or a tag: for a key (it keeps it for this queue) or, with 0, for this item only.
   // Type to narrow the list, arrows to move, Enter to pick, Esc to cancel.
   import { onMount } from 'svelte';
+  import { rank } from '../../../shared/match';
   import { searchFolders } from '../../lib/folders';
   import { library } from '../../lib/stores/library.svelte';
   import type { TriageSession } from '../../lib/stores/triage.svelte';
@@ -28,14 +29,15 @@
       return searchFolders(text, 40).map((f) => ({
         value: f.id,
         label: f.name,
-        sub: f.path === f.name ? '' : f.path,
+        sub: f.where,
       }));
-    const q = text.trim().toLowerCase();
-    const hits = library.tags
-      .filter((t) => !q || t.name.toLowerCase().includes(q))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 40)
-      .map((t) => ({ value: t.name, label: t.name, sub: `${t.count.toLocaleString()} items` }));
+    const hits = (
+      text.trim()
+        ? rank(text, library.tags, (t) => ({ label: t.name, weight: t.count }), 40).map(
+            (r) => r.item,
+          )
+        : [...library.tags].sort((a, b) => b.count - a.count).slice(0, 40)
+    ).map((t) => ({ value: t.name, label: t.name, sub: `${t.count.toLocaleString()} items` }));
     const typed = canonicalTag(text);
     if (typed && !tagExists(typed))
       hits.unshift({ value: typed, label: `New tag ${quoted(typed)}`, sub: '' });

@@ -15,9 +15,9 @@
   import Trash2 from '@lucide/svelte/icons/trash-2';
   import { api } from '../../lib/api';
   import { canEdit, confirmBulk, fail, mutate, readOnlyTip } from '../../lib/edit';
-  import { leaveFolders, rank } from '../../lib/folders';
+  import { leaveFolders, whereLabels } from '../../lib/folders';
   import { plural, quoted } from '../../lib/format';
-  import { segments, type Segment } from '../../lib/fuzzy';
+  import { rank, segments, type Segment } from '../../../shared/match';
   import { pushRecent, readList } from '../../lib/storage';
   import { library } from '../../lib/stores/library.svelte';
   import { view } from '../../lib/stores/view.svelte';
@@ -38,6 +38,7 @@
     id: string;
     name: string;
     path: string;
+    parents: string[];
     color: string | null;
     count: number | null;
     scope: Scope | null;
@@ -46,6 +47,8 @@
   interface Row {
     entry: Entry | null; // null = the "Create folder" row
     segs: Segment[];
+    /** "in … › Parent" */
+    where: string;
     section: string;
   }
 
@@ -62,6 +65,7 @@
       id,
       name: f.node.name,
       path: f.path.join(' › '),
+      parents: f.path.slice(0, -1),
       color: f.node.iconColor ? FOLDER_COLORS[f.node.iconColor] : null,
       count: library.counts?.folders[id]?.deep ?? null,
       scope: { kind: 'folder' as const, id, includeSubfolders: view.showSubfolderContents },
@@ -79,6 +83,7 @@
             id: s.id,
             name: s.name,
             path: s.name,
+            parents: [],
             color: s.iconColor ? FOLDER_COLORS[s.iconColor] : null,
             count: library.counts?.smartFolders[s.id] ?? null,
             scope: { kind: 'smartFolder' as const, id: s.id },
@@ -98,6 +103,7 @@
             id: name,
             name,
             path: name,
+            parents: [],
             color: null,
             count: count ?? null,
             scope,
@@ -109,44 +115,41 @@
 
   const rows = $derived.by<Row[]>(() => {
     const q = text.trim();
-    const out: Row[] = [];
+    let out: Omit<Row, 'where'>[] = [];
     if (!q) {
       const byId = new Map(folderEntries.map((e) => [e.id, e]));
       const recent = readList(recentKey)
         .map((id) => byId.get(id))
         .filter((e): e is Entry => !!e)
         .slice(0, 8);
-      for (const e of recent)
-        out.push({ entry: e, segs: [{ text: e.path, hit: false }], section: 'Recent' });
+      for (const e of recent) out.push({ entry: e, segs: segments(e.name, []), section: 'Recent' });
       for (const e of folderEntries.slice(0, 300)) {
         if (!recent.includes(e))
-          out.push({ entry: e, segs: [{ text: e.path, hit: false }], section: 'All folders' });
+          out.push({ entry: e, segs: segments(e.name, []), section: 'All folders' });
       }
-      return out;
+    } else {
+      out = rank(
+        q,
+        [...folderEntries, ...extraEntries],
+        (e) => ({ label: e.name, parents: e.parents, weight: e.count ?? 0 }),
+        60,
+      ).map(({ item: e, hit }) => ({
+        entry: e,
+        segs: segments(e.name, hit.positions),
+        section: e.kind === 'folder' ? (hit.close ? 'Close spelling' : 'Folders') : 'Go to',
+      }));
     }
-    const scored: { row: Row; score: number }[] = [];
-    for (const e of [...folderEntries, ...extraEntries]) {
-      const hit = rank(q, e.name, e.path);
-      if (hit)
-        scored.push({
-          row: {
-            entry: e,
-            segs: segments(e.path, hit.positions),
-            section: e.kind === 'folder' ? 'Folders' : 'Go to',
-          },
-          score: hit.score,
-        });
-    }
-    scored.sort((a, b) => b.score - a.score || a.row.entry!.path.length - b.row.entry!.path.length);
-    out.push(...scored.slice(0, 60).map((s) => s.row));
+    const where = whereLabels(out.map((r) => ({ name: r.entry!.name, parents: r.entry!.parents })));
+    const rows: Row[] = out.map((r, i) => ({ ...r, where: where[i] }));
     const exact = folderEntries.some((e) => e.name.toLowerCase() === q.toLowerCase());
-    if (mode !== 'goto' && !exact)
-      out.push({
+    if (q && mode !== 'goto' && !exact)
+      rows.push({
         entry: null,
         segs: [{ text: `Create folder ${quoted(q)}`, hit: false }],
+        where: '',
         section: 'New',
       });
-    return out;
+    return rows;
   });
 
   // The highlighted row, kept inside the list as it changes (typing starts it over at the top).
@@ -277,6 +280,7 @@
           >{#each row.segs as s, j (j)}{#if s.hit}<mark>{s.text}</mark
               >{:else}{s.text}{/if}{/each}</span
         >
+        {#if row.where}<span class="w">{row.where}</span>{/if}
         {#if e?.count !== null && e}<span class="d">{e.count!.toLocaleString()}</span
           >{:else if !e}<span class="d">top level</span>{/if}
       </div>
@@ -355,8 +359,17 @@
     flex: none;
   }
   .nm {
-    flex: 1;
+    flex: 0 1 auto;
     min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .w {
+    flex: 1 1 0;
+    min-width: 0;
+    color: var(--fa);
+    font-size: 12.5px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;

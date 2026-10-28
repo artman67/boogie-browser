@@ -1,14 +1,42 @@
 import { describe, expect, it } from 'vitest';
-import { buildPalette, type PaletteInput } from './paletteModel';
+import { buildPalette, type PaletteInput, type Place } from './paletteModel';
+
+const folder = (
+  id: string,
+  name: string,
+  parents: string[],
+  parentId: string | null,
+  count: number,
+): Place => ({
+  kind: 'folder',
+  id,
+  name,
+  parents,
+  parentId,
+  count,
+});
+
+const places: Place[] = [
+  folder('F1', 'Teachers', [], null, 300),
+  folder('F2', 'Robert Fleury', ['Teachers'], 'F1', 29),
+  folder('F3', 'Hands', [], null, 80),
+  folder('F4', 'Hands', ['Teachers', 'Robert Fleury'], 'F2', 5),
+  folder('F5', 'Hand studies', ['Teachers'], 'F1', 12),
+  { kind: 'smartFolder', id: 'S1', name: 'Fleshy', parents: [], parentId: null, count: 4 },
+];
 
 const base: PaletteInput = {
   text: '',
   selectionCount: 0,
   canEdit: true,
   currentKeywords: '',
-  tagSuggestions: [],
-  folderSuggestions: [],
-  knownTags: ['Flesh Tones', 'Color Poetry'],
+  places,
+  tags: [
+    { name: 'Flesh Tones', count: 8 },
+    { name: 'Color Poetry', count: 3 },
+    { name: 'handsome', count: 2 },
+  ],
+  images: null,
   commands: [
     { id: 'edit.undo', title: 'Undo', keys: ['Ctrl+Z'], icon: 'undo-2' },
     { id: 'app.search', title: 'Search…', keys: ['Ctrl+F'] },
@@ -19,86 +47,100 @@ const base: PaletteInput = {
   libraries: [{ path: '/lib/Course Library.library', name: 'Course Library' }],
 };
 
-const titles = (input: Partial<PaletteInput>) =>
-  buildPalette({ ...base, ...input }).map((s) => s.title);
+const palette = (input: Partial<PaletteInput>) => buildPalette({ ...base, ...input });
+const titles = (input: Partial<PaletteInput>) => palette(input).map((s) => s.title);
 const labels = (input: Partial<PaletteInput>, section: string) =>
-  buildPalette({ ...base, ...input })
+  palette(input)
     .find((s) => s.title === section)
     ?.rows.map((r) => r.segs.map((g) => g.text).join('')) ?? [];
 
 describe('buildPalette', () => {
-  const typed: Partial<PaletteInput> = {
-    text: 'fle',
-    selectionCount: 2,
-    tagSuggestions: [{ label: 'Flesh Tones', count: 8 }],
-    folderSuggestions: [
-      {
-        kind: 'folder',
-        id: 'F1',
-        label: 'Robert Fleury',
-        path: 'Teachers › Robert Fleury',
-        count: 29,
-      },
-      { kind: 'smartFolder', id: 'S1', label: 'Fleshy', path: 'Fleshy', count: 4 },
-    ],
-  };
+  it('puts the folder you named on top, then images, folders, and tags last', () => {
+    const s = palette({ text: 'fleury', images: { total: 12, thumbs: [] } });
+    expect(s.map((x) => x.title)).toEqual(['Top hit', 'Images']);
+    expect(s[0].rows[0]).toMatchObject({
+      big: true,
+      where: 'in Teachers',
+      path: 'Teachers › Robert Fleury',
+    });
+    expect(labels({ text: 'fle' }, 'Images')).toEqual(['Search for “fle”']);
+    expect(titles({ text: 'fle' })).toEqual(['Top hit', 'Images', 'Folders', 'Tags']);
+    expect(labels({ text: 'fle', images: { total: 3, thumbs: [] } }, 'Images')).toEqual([
+      'Show all 3 items matching “fle”',
+    ]);
+  });
 
-  it('puts Search first, then tags, folders and commands', () => {
-    expect(titles(typed)).toEqual(['Search', 'Tags', 'Folders']);
-    expect(labels(typed, 'Search')).toEqual(['Search for “fle”']);
-    expect(labels(typed, 'Tags')).toEqual([
-      'Add tag Flesh Tones to 2 selected',
-      'Show items tagged Flesh Tones',
+  it('matches words, never letters scattered across a name', () => {
+    expect(titles({ text: 'tfy' })).not.toContain('Folders');
+    expect(labels({ text: 'tfy' }, 'Folders and tags')).toEqual([
+      'No folder or tag is named “tfy”.',
+    ]);
+  });
+
+  it('says where a folder is in short, and puts a whole word before the start of one', () => {
+    const rows = palette({ text: 'hand' })
+      .flatMap((x) => x.rows)
+      .filter((r) => r.action.kind === 'goFolder');
+    expect(rows.map((r) => [r.key, r.where])).toEqual([
+      ['go:F5', 'in Teachers'],
+      ['go:F3', undefined],
+      ['go:F4', 'in … › Robert Fleury'],
+    ]);
+  });
+
+  it('lists the folders inside a matching folder when it is opened', () => {
+    const tree: Place[] = [
+      folder('A', 'Hands', [], null, 50),
+      folder('B', 'Hands old', ['Hands'], 'A', 10),
+      folder('C', 'Hands new', ['Hands'], 'A', 9),
+    ];
+    const closed = palette({ text: 'hands', places: tree }).flatMap((x) => x.rows);
+    expect(closed.find((r) => r.key === 'go:A')).toMatchObject({ inside: 2, open: false });
+    expect(closed.some((r) => r.key === 'in:B')).toBe(false);
+    const open = palette({ text: 'hands', places: tree, expanded: 'A' }).flatMap((x) => x.rows);
+    expect(open.filter((r) => r.nested).map((r) => r.key)).toEqual(['in:B', 'in:C']);
+  });
+
+  it('falls back to close spellings only when nothing matches as typed', () => {
+    expect(labels({ text: 'fleurry' }, 'Close spelling')).toEqual(['Robert Fleury']);
+    // "hands" matches folders, so the tag one letter off ("handsome" is not) stays out.
+    expect(titles({ text: 'hands' })).not.toContain('Close spelling');
+  });
+
+  it('offers Ctrl+Enter to add the selection, but not to smart folders or read-only libraries', () => {
+    const rows = palette({ text: 'fle', selectionCount: 2 }).flatMap((x) => x.rows);
+    expect(rows.find((r) => r.key === 'go:F2')?.alt?.action).toEqual({
+      kind: 'addToFolder',
+      id: 'F2',
+      name: 'Robert Fleury',
+    });
+    expect(rows.find((r) => r.key === 'go:S1')?.alt).toBeUndefined();
+    expect(rows.find((r) => r.key === 'tag:Flesh Tones')?.alt?.action).toEqual({
+      kind: 'addTag',
+      tag: 'Flesh Tones',
+    });
+    expect(labels({ text: 'fle', selectionCount: 2 }, 'Tags')).toContain(
       'Create tag “fle” and add to 2 selected',
-    ]);
-  });
-
-  it('offers to add the selection to folders but only go-to for smart folders', () => {
-    expect(labels(typed, 'Folders')).toEqual([
-      'Go to Teachers › Robert Fleury',
-      'Add 2 selected to Teachers › Robert Fleury',
-      'Go to Fleshy',
-    ]);
-  });
-
-  it('with nothing selected, tags can only be shown, and no create row appears', () => {
-    expect(labels({ ...typed, selectionCount: 0 }, 'Tags')).toEqual([
-      'Show items tagged Flesh Tones',
-    ]);
-  });
-
-  it('does not offer to create a tag that exists (ignoring case)', () => {
-    expect(labels({ ...typed, text: 'flesh tones' }, 'Tags')).not.toContain(
+    );
+    expect(labels({ text: 'flesh tones', selectionCount: 2 }, 'Tags')).not.toContain(
       'Create tag “flesh tones” and add to 2 selected',
     );
-  });
-
-  it('read-only libraries get no add or create rows', () => {
-    const rows = labels({ ...typed, canEdit: false }, 'Tags').concat(
-      labels({ ...typed, canEdit: false }, 'Folders'),
-    );
-    expect(rows.some((r) => r.startsWith('Add') || r.startsWith('Create'))).toBe(false);
+    const ro = palette({ text: 'fle', selectionCount: 2, canEdit: false }).flatMap((x) => x.rows);
+    expect(ro.some((r) => r.alt || r.key === 'createTag')).toBe(false);
   });
 
   it('puts commands first when you type the start of one, so Enter runs it', () => {
     expect(titles({ text: 'rename' })[0]).toBe('Commands');
     expect(titles({ text: 'bigger thumb' })[0]).toBe('Commands');
     // A short or partial match is still a search first.
-    expect(titles({ text: 'ren' })[0]).toBe('Search');
-    expect(titles({ text: 'thumbnails' })[0]).toBe('Search');
-  });
-
-  it('matches commands and libraries by fuzzy text', () => {
+    expect(titles({ text: 'ren' })[0]).toBe('Images');
+    expect(titles({ text: 'thumbnails' })[0]).toBe('Images');
     expect(labels({ text: 'ren' }, 'Commands')).toEqual(['Rename…']);
-    expect(labels({ text: 'coul' }, 'Libraries')).toEqual(['Switch to Course Library']);
+    expect(labels({ text: 'cour' }, 'Libraries')).toEqual(['Switch to Course Library']);
   });
 
   it('shows recent then suggested commands when empty, and a way to clear the current search', () => {
-    const s = buildPalette({
-      ...base,
-      recentCommandIds: ['edit.undo', 'gone.command'],
-      currentKeywords: 'oil',
-    });
+    const s = palette({ recentCommandIds: ['edit.undo', 'gone.command'], currentKeywords: 'oil' });
     expect(s.map((x) => x.title)).toEqual(['Search', 'Recent', 'Commands']);
     expect(s[1].rows.map((r) => r.action)).toEqual([{ kind: 'command', id: 'edit.undo' }]);
     expect(s[1].rows[0].keys).toBe('Ctrl Z');
@@ -106,18 +148,9 @@ describe('buildPalette', () => {
   });
 
   it('offers the last searches (not the one already on) to run again', () => {
-    const s = buildPalette({
-      ...base,
-      currentKeywords: 'oil',
-      recentSearches: ['oil', 'hands', 'sketch'],
-    });
-    expect(
-      labels(
-        { currentKeywords: 'oil', recentSearches: ['oil', 'hands', 'sketch'] },
-        'Recent searches',
-      ),
-    ).toEqual(['hands', 'sketch']);
-    expect(s.find((x) => x.title === 'Recent searches')?.rows[0].action).toEqual({
+    const input = { currentKeywords: 'oil', recentSearches: ['oil', 'hands', 'sketch'] };
+    expect(labels(input, 'Recent searches')).toEqual(['hands', 'sketch']);
+    expect(palette(input).find((x) => x.title === 'Recent searches')?.rows[0].action).toEqual({
       kind: 'search',
       text: 'hands',
     });

@@ -19,7 +19,9 @@
   let hi = $state(0);
   let resultsEl = $state<HTMLElement | null>(null);
   const filtering = $derived(!!query.trim());
-  const found = $derived(filterFolders(library.folders, query));
+  const found = $derived(
+    filterFolders(library.folders, query, 50, (id) => library.counts?.folders[id]?.deep ?? 0),
+  );
   const scopeId = $derived(view.scope.kind === 'folder' ? view.scope.id : null);
 
   function filterKey(e: KeyboardEvent) {
@@ -67,7 +69,6 @@
     {#each found.hits as h, i (h.id)}
       {@const f = library.folder(h.id)?.node}
       {@const n = library.counts?.folders[h.id]?.deep}
-      {@const q = query.trim().length}
       <!-- The filter box keeps the keyboard (aria-activedescendant); a click opens the folder. -->
       <!-- svelte-ignore a11y_click_events_have_key_events -->
       <div
@@ -86,9 +87,8 @@
         <div class="a">
           <FolderGlyph color={f?.iconColor} icon={f?.icon} />
           <span class="fn"
-            >{h.name.slice(0, h.at)}<mark>{h.name.slice(h.at, h.at + q)}</mark>{h.name.slice(
-              h.at + q,
-            )}</span
+            >{#each h.segs as s, j (j)}{#if s.hit}<mark>{s.text}</mark
+                >{:else}{s.text}{/if}{/each}</span
           >
           {#if n}<span class="sb-ct">{n.toLocaleString()}</span>{/if}
         </div>

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount, tick, untrack } from 'svelte';
+  import ChevronRight from '@lucide/svelte/icons/chevron-right';
   import Search from '@lucide/svelte/icons/search';
   import { api } from '../../lib/api';
   import { commands, focus, type CommandContext } from '../../lib/commands.svelte';
@@ -15,17 +16,17 @@
   import { iconFor } from '../pickers/icons';
   import { rememberFolder } from '../../lib/lastFolder';
   import Modal from '../pickers/Modal.svelte';
-  import { buildPalette, type PaletteRow } from './paletteModel';
+  import { whereYouAre } from '../toolbar/where';
+  import { FOLDER_COLORS, type Scope } from '../../../shared/types';
+  import { buildPalette, type PaletteInput, type PaletteRow, type Place } from './paletteModel';
 
   let { initial, onclose }: { initial: string; onclose: () => void } = $props();
 
   const RECENT_KEY = 'recentCommands';
   let text = $state(untrack(() => initial));
   let hi = $state(0);
-  let sugg = $state.raw<{
-    tags: { label: string; count: number }[];
-    folders: Parameters<typeof buildPalette>[0]['folderSuggestions'];
-  }>({ tags: [], folders: [] });
+  let expanded = $state<string | null>(null);
+  let images = $state.raw<PaletteInput['images']>(null);
   let inputEl = $state<HTMLInputElement | null>(null);
   let listEl = $state<HTMLDivElement | null>(null);
   const recentIds = readList(RECENT_KEY);
@@ -37,6 +38,46 @@
   const from: CommandContext = untrack(() => ({
     region: focus.region === 'overlay' ? focus.underOverlay : focus.region,
   }));
+  // A search covers the whole library unless you narrow it to where you are. Ctrl+F with a search
+  // already on opens with its words, to refine them where they are.
+  const here = untrack(() => whereYouAre());
+  const narrowable = untrack(() => view.scope.kind !== 'all');
+  let everywhere = $state(untrack(() => !initial));
+  const wide = $derived(everywhere || !narrowable);
+
+  // Every folder and smart folder with the names above it and the items in it and under it.
+  const places = $derived.by((): Place[] => {
+    const counts = library.counts;
+    const out: Place[] = [];
+    for (const [id, f] of library.folders)
+      out.push({
+        kind: 'folder',
+        id,
+        name: f.node.name,
+        parents: f.path.slice(0, -1),
+        parentId: f.parentId,
+        count: counts?.folders[id]?.deep ?? 0,
+        color: f.node.iconColor ? FOLDER_COLORS[f.node.iconColor] : null,
+      });
+    const parentOf = new Map<string, string>();
+    for (const n of library.smartFolders.values())
+      for (const c of n.children) parentOf.set(c.id, n.id);
+    for (const [id, n] of library.smartFolders) {
+      const parents: string[] = [];
+      for (let p = parentOf.get(id); p; p = parentOf.get(p))
+        parents.unshift(library.smartFolders.get(p)?.name ?? '');
+      out.push({
+        kind: 'smartFolder',
+        id,
+        name: n.name,
+        parents,
+        parentId: null,
+        count: counts?.smartFolders[id] ?? 0,
+        color: n.iconColor ? FOLDER_COLORS[n.iconColor] : null,
+      });
+    }
+    return out;
+  });
 
   const sections = $derived(
     buildPalette({
@@ -44,9 +85,10 @@
       selectionCount: selection.count,
       canEdit: !library.readOnly,
       currentKeywords: view.filter.keywords ?? '',
-      tagSuggestions: sugg.tags,
-      folderSuggestions: sugg.folders,
-      knownTags: library.tags.map((t) => t.name),
+      places,
+      tags: library.tags,
+      images,
+      expanded,
       commands: commands.enabled(from).filter((c) => !c.hidden),
       recentCommandIds: recentIds,
       recentSearches,
@@ -60,48 +102,52 @@
   const starts = $derived(
     sections.map((_, i) => sections.slice(0, i).reduce((n, s) => n + s.rows.length, 0)),
   );
+  const cur = $derived(flat[hi] as PaletteRow | undefined);
 
   onMount(() => {
     inputEl?.focus();
     inputEl?.select();
   });
 
-  // Ask the core for tag and folder matches as you type (debounced; a late answer is dropped).
+  $effect(() => {
+    void text;
+    hi = 0;
+    expanded = null;
+  });
+
+  // The scope a search would show, and its filter: the other filters stay on unless the search
+  // leaves the folder (then they go, as they do when you change folders without the lock).
+  const searchScope = (): Scope =>
+    wide ? { kind: 'all' } : ($state.snapshot(view.scope) as Scope);
+  const keepFilter = () => !wide || view.scope.kind === 'all' || filterUi.lock;
+
+  // A preview of the keyword search as you type (debounced; a late answer is dropped).
   let seq = 0;
   $effect(() => {
     const q = text.trim();
-    hi = 0;
+    const scope = searchScope();
+    const filter = keepFilter()
+      ? { ...$state.snapshot(view.filter), keywords: q }
+      : { keywords: q };
     const mine = ++seq;
-    if (!q) return void (sugg = { tags: [], folders: [] });
+    if (!q) return void (images = null);
     const t = setTimeout(async () => {
       try {
-        const [tags, folders] = await Promise.all([
-          api.suggest(q, ['tag'], 8),
-          api.suggest(q, ['folder', 'smartFolder'], 10),
-        ]);
+        const res = await api.query({ scope, filter, sort: null });
+        const briefs = res.ids.length ? await api.getBriefs(res.ids.slice(0, 9)) : [];
         if (mine !== seq) return;
-        sugg = {
-          tags: tags.map((r) => ({ label: r.label, count: r.count })),
-          folders: folders
-            .filter((r) => r.kind !== 'tag')
-            // The core writes paths as "Parent / Child"; the rest of the UI shows "Parent › Child".
-            .map((r) => ({
-              kind: r.kind as 'folder' | 'smartFolder',
-              id: r.id,
-              label: r.label,
-              path: library.folder(r.id)?.path.join(' › ') ?? r.path,
-              count: r.count,
-            })),
-        };
+        images = { total: res.total, thumbs: briefs.map((b) => ({ id: b.id, url: b.thumbUrl })) };
       } catch {
-        /* the search and command rows still work without suggestions */
+        if (mine === seq) images = null;
       }
-    }, 60);
+    }, 120);
     return () => clearTimeout(t);
   });
 
-  async function run(row: PaletteRow) {
-    const a = row.action;
+  async function run(row: PaletteRow, alt = false) {
+    const a = alt && row.alt ? row.alt.action : row.action;
+    if (a.kind === 'none') return;
+    if (a.kind === 'toggleInside') return toggle(a.id);
     const ids = selection.inOrder(view.result?.ids);
     // Close first and let the palette unmount: the action may open another overlay, and a command
     // must run with the keyboard back where the palette was opened from.
@@ -111,6 +157,8 @@
       switch (a.kind) {
         case 'search': {
           const q = a.text.trim();
+          if (q && wide && view.scope.kind !== 'all')
+            view.setScope({ kind: 'all' }, { keepFilter: filterUi.lock });
           view.setFilter({ keywords: q || undefined });
           if (q) pushRecent(searchKey, q, 5);
           break;
@@ -165,6 +213,15 @@
     }
   }
 
+  /** List (or hide) the matching folders inside a folder row, keeping that row highlighted. */
+  function toggle(id: string) {
+    expanded = expanded === id ? null : id;
+    void tick().then(() => {
+      const i = flat.findIndex((r) => r.key === `go:${id}`);
+      if (i >= 0) hi = i;
+    });
+  }
+
   function move(to: number) {
     if (!flat.length) return;
     hi = (to + flat.length) % flat.length;
@@ -184,7 +241,18 @@
     else if (e.key === 'ArrowUp') move(hi - 1);
     else if (e.key === 'Tab') jumpSection(e.shiftKey ? -1 : 1);
     else if (e.key === 'Enter') {
-      if (flat[hi]) void run(flat[hi]);
+      if (cur) void run(cur, e.ctrlKey || e.metaKey);
+    } else if (
+      (e.key === 'ArrowRight' || e.key === 'ArrowLeft') &&
+      inputEl?.selectionStart === text.length &&
+      cur
+    ) {
+      // With the caret at the end, → lists the folders inside the highlighted one, ← hides them.
+      const open = e.key === 'ArrowRight';
+      if (open && cur.inside && !cur.open)
+        toggle(cur.action.kind === 'goFolder' ? cur.action.id : '');
+      else if (!open && expanded && (cur.open || cur.nested)) toggle(expanded);
+      else return;
     } else return;
     e.preventDefault();
   }
@@ -213,40 +281,83 @@
         bind:value={text}
         onkeydown={onkey}
       />
+      {#if narrowable}
+        <button
+          class="scope"
+          title="Search the whole library or just {here.name}"
+          onclick={() => (everywhere = !everywhere)}
+          >{everywhere ? 'Everywhere' : `In ${here.name}`}</button
+        >
+      {/if}
       {#if selection.count}<span class="ctx">{selection.count.toLocaleString()} selected</span>{/if}
     </div>
     <div class="pg" id="palette-list" role="listbox" bind:this={listEl}>
       {#each sections as sec, si (sec.title)}
-        <h6>{sec.title}</h6>
+        <h6>
+          {sec.title}{#if sec.detail}<span>{sec.detail}</span>{/if}
+        </h6>
+        {#if sec.strip}
+          <div class="strip" role="presentation">
+            {#each sec.strip as t (t.id)}
+              <img
+                src={t.url}
+                alt=""
+                loading="lazy"
+                onclick={() => run(sec.rows[0])}
+                onkeydown={() => {}}
+                role="presentation"
+              />
+            {/each}
+          </div>
+        {/if}
         {#each sec.rows as row, ri (row.key)}
           {@const i = starts[si] + ri}
           {@const Icon = iconFor(row.icon)}
           <div
             class="po"
             class:on={i === hi}
+            class:big={row.big}
+            class:nested={row.nested}
+            class:note={row.note}
             role="option"
             tabindex="-1"
             aria-selected={i === hi}
             onmousedown={(ev) => ev.preventDefault()}
-            onclick={() => run(row)}
+            onclick={(ev) => run(row, ev.ctrlKey || ev.metaKey)}
             onkeydown={() => {}}
             onmousemove={() => (hi = i)}
           >
-            <Icon size={16} />
+            <Icon size={row.big ? 18 : 16} color={row.color ?? undefined} />
             <span class="lb"
               >{#each row.segs as s, j (j)}{#if s.hit}<mark>{s.text}</mark
                   >{:else}{s.text}{/if}{/each}</span
             >
+            {#if row.where}<span class="w">{row.where}</span>{/if}
             {#if row.detail}<span class="d">{row.detail}</span>{/if}
-            {#if row.keys}<kbd>{row.keys}</kbd>{:else if i === hi}<kbd>Enter</kbd>{/if}
+            {#if row.inside}
+              <button
+                class="in"
+                class:open={row.open}
+                onclick={(ev) => {
+                  ev.stopPropagation();
+                  if (row.action.kind === 'goFolder') toggle(row.action.id);
+                }}>{row.inside} more inside<ChevronRight size={13} /></button
+              >
+            {/if}
+            {#if row.keys}<kbd>{row.keys}</kbd>{:else if i === hi && !row.note}<kbd>Enter</kbd>{/if}
           </div>
         {/each}
       {/each}
     </div>
     <div class="pfoot">
-      <span>↑ ↓ to move</span><span>Enter to run</span><span>Tab for the next group</span><span
-        >Esc to close</span
-      >
+      {#if cur?.path || cur?.alt}
+        {#if cur.path}<span class="path">{cur.path}</span>{/if}
+        {#if cur.alt}<span class="alt"><kbd>Ctrl Enter</kbd> {cur.alt.label}</span>{/if}
+      {:else}
+        <span>↑ ↓ to move</span><span>Enter to run</span><span>Tab for the next group</span><span
+          >Esc to close</span
+        >
+      {/if}
     </div>
   </div>
 </Modal>
@@ -279,6 +390,22 @@
   .pin input::placeholder {
     color: var(--fa);
   }
+  .scope {
+    flex: none;
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding: 2px 9px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: none;
+    font-size: 12px;
+    color: var(--mu);
+  }
+  .scope:hover {
+    color: var(--tx);
+  }
   .ctx {
     font-size: 12px;
     white-space: nowrap;
@@ -287,6 +414,26 @@
     padding: 4px 8px 6px;
     overflow: auto;
     min-height: 0;
+  }
+  h6 span {
+    margin-left: 8px;
+    font-weight: 400;
+    letter-spacing: 0;
+    text-transform: none;
+  }
+  .strip {
+    display: flex;
+    gap: 4px;
+    padding: 0 10px 6px;
+    overflow: hidden;
+  }
+  .strip img {
+    width: 52px;
+    height: 52px;
+    flex: none;
+    object-fit: cover;
+    border-radius: 5px;
+    background: var(--bls);
   }
   h6 {
     margin: 0;
@@ -314,6 +461,45 @@
   .po.on {
     background: var(--bls);
   }
+  .po.big {
+    height: 46px;
+    font-size: 15px;
+    font-weight: 500;
+  }
+  .po.nested {
+    padding-left: 34px;
+  }
+  .po.note {
+    color: var(--fa);
+  }
+  .w {
+    flex: 1 1 0;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--fa);
+    font-size: 12.5px;
+    font-weight: 400;
+  }
+  .in {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 1px 4px 1px 7px;
+    border: 0;
+    border-radius: 5px;
+    background: none;
+    font-size: 12px;
+    color: var(--mu);
+    white-space: nowrap;
+  }
+  .in:hover {
+    background: var(--line);
+  }
+  .in.open :global(svg) {
+    transform: rotate(90deg);
+  }
   .lb {
     min-width: 0;
     overflow: hidden;
@@ -328,17 +514,34 @@
   .po kbd {
     margin-left: auto;
   }
-  .lb + .d + kbd,
-  .lb + kbd {
+  .lb {
+    flex: 0 1 auto;
+  }
+  .lb + .d,
+  .lb + kbd,
+  .lb + .in {
     margin-left: auto;
   }
-  .lb:has(+ .d) {
-    flex: 0 1 auto;
+  .d + kbd,
+  .d + .in,
+  .in + kbd {
+    margin-left: 0;
   }
   mark {
     background: none;
     color: var(--link);
     font-weight: 600;
+  }
+  .pfoot .path {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .pfoot .alt {
+    flex: none;
+    margin-left: auto;
   }
   .pfoot {
     display: flex;
