@@ -189,12 +189,19 @@ export function bruteCounts(records: EagleItemRecord[], root: EagleRootRecord) {
   const own: Record<string, Set<string>> = {};
   const deep: Record<string, Set<string>> = {};
   for (const id of parent.keys()) ((own[id] = new Set()), (deep[id] = new Set()));
+  const only: Record<string, number> = {};
+  for (const id of parent.keys()) only[id] = 0;
   for (const r of live) {
     for (const f of r.folders ?? []) {
       if (!parent.has(f)) continue;
       own[f].add(r.id);
       for (const a of withAncestors(f)) deep[a].add(r.id);
     }
+    // `only`: folders whose subtree holds every (existing) folder the item is in.
+    const homes = (r.folders ?? []).filter((f) => parent.has(f));
+    if (homes.length)
+      for (const a of withAncestors(homes[0]))
+        if (homes.every((f) => withAncestors(f).includes(a))) only[a]++;
   }
   return {
     all: live.length,
@@ -202,7 +209,10 @@ export function bruteCounts(records: EagleItemRecord[], root: EagleRootRecord) {
     untagged: live.filter((r) => !(r.tags ?? []).length).length,
     trash: records.length - live.length,
     folders: Object.fromEntries(
-      [...parent.keys()].map((id) => [id, { own: own[id].size, deep: deep[id].size }]),
+      [...parent.keys()].map((id) => [
+        id,
+        { own: own[id].size, deep: deep[id].size, only: only[id] },
+      ]),
     ),
   };
 }

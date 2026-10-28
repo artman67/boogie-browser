@@ -247,8 +247,12 @@ export interface Counts {
   uncategorized: number;
   untagged: number;
   trash: number;
-  /** own = items directly in the folder; deep = folder plus all descendants (distinct items). */
-  folders: Record<string, { own: number; deep: number }>;
+  /**
+   * own = items directly in the folder; deep = folder plus all descendants (distinct items);
+   * only = of the deep ones, those in no folder outside this subtree (deleting it leaves them in
+   * no folder).
+   */
+  folders: Record<string, { own: number; deep: number; only: number }>;
   smartFolders: Record<string, number>;
   /** Total bytes of live (non-trashed) items. */
   totalSize?: number;

@@ -49,6 +49,7 @@ describe.skipIf(!sandboxAvailable)('MCP tools on the real core', () => {
       'history',
       'find_duplicates',
       'job_status',
+      'plan_changes',
     ];
     const additive = [
       'add_tags',
@@ -100,8 +101,8 @@ describe.skipIf(!sandboxAvailable)('MCP tools on the real core', () => {
       expect(byName.get(n).inputSchema.properties.plan_id, n).toBeDefined();
     // Every agent session pays for this list: 48 KB before the round-2 trim, 20.9 KB for 34 tools,
     // 27.5 KB for 42 (round 4: smart folders, tag groups, starred tags, saved filters, copy),
-    // 28.7 KB once every tool took a `library` argument.
-    expect(Buffer.byteLength(JSON.stringify(json.result))).toBeLessThan(29_000);
+    // 28.7 KB once every tool took a `library` argument, 29.2 KB with plan_changes.
+    expect(Buffer.byteLength(JSON.stringify(json.result))).toBeLessThan(29_500);
   });
 
   it('search_items finds real items by folder (subfolders included), tags, rating and type', async () => {
@@ -161,7 +162,7 @@ describe.skipIf(!sandboxAvailable)('MCP tools on the real core', () => {
       item_ids: [a],
       plan_id: dry.data.plan_id,
     });
-    expect(wrongArgs.text).toMatch(/arguments differ/);
+    expect(wrongArgs.text).toMatch(/arguments differ from the dry run .*: item_ids\./);
     const wrongTool = await x.client.call('restore_items', {
       item_ids: [a, b],
       plan_id: dry.data.plan_id,
@@ -484,6 +485,77 @@ describe.skipIf(!sandboxAvailable)('MCP tools on the real core', () => {
     const item = await x.host.api.getItem(good.data.added[0]);
     expect(item).toMatchObject({ name: 'fine', folders: [x.folders.refs] });
     expect(item?.tags).toContain('imported');
+
+    // The preview runs the import's own duplicate check, so it says what would be skipped.
+    const again = await x.client.call('import_file', { paths: [ok], dry_run: true });
+    expect(again.data.summary).toMatch(/1 already in the library \(on_duplicate: skip\)/);
+    expect(again.data.changes[0].after).toBe(
+      `skipped: already in the library as ${good.data.added[0]}`,
+    );
+  });
+
+  it('folder deletes preview briefly: grouped rows, trashed items marked, and who is left in no folder', async () => {
+    const x = await start({ copies: 30 });
+    const { api } = x.host;
+    const inRefs = [x.sample[0], ...copiesOf(x)];
+    await api.updateItems(inRefs, { addFolders: [x.folders.refs] });
+    await api.updateItems(inRefs.slice(1, 6), { addFolders: [x.folders.atelier] });
+    await api.trashItems(inRefs.slice(-2));
+
+    const listed = await x.client.call('list_folders', { parent: 'Refs' });
+    expect(listed.data.folders[0]).toMatchObject({
+      items_including_subfolders: 29,
+      items_only_here: 24, // 31 in Refs, 5 also in Atelier, 2 in the trash
+    });
+
+    const dry = await x.client.call('delete_folder', { folder: 'Refs' });
+    expect(dry.data).toMatchObject({
+      status: 'dry_run',
+      changes_total: 32,
+      changes_truncated: true,
+      left_in_no_folder: 24,
+      change_groups_total: 4,
+    });
+    expect(dry.data.summary).toMatch(/31 items taken out of it \(2 of them already in the trash\)/);
+    expect(dry.data.changes).toHaveLength(20);
+    expect(dry.data.changes.some((c: any) => c.in_trash)).toBe(false); // live items come first
+    expect(dry.data.change_groups[0]).toMatchObject({ before: ['Refs'], after: [], count: 24 });
+    expect(dry.data.change_groups.find((g: any) => g.count === 2)).toMatchObject({
+      before: ['Refs'],
+      after: [],
+    });
+
+    const rest = await x.client.call('plan_changes', { plan_id: dry.data.plan_id, offset: 20 });
+    expect(rest.data).toMatchObject({ returned: 12, total: 32, has_more: false });
+    expect(rest.data.changes.filter((c: any) => c.in_trash)).toHaveLength(2);
+    // Reading the rows doesn't use the plan up.
+    const done = await x.client.call('delete_folder', {
+      folder: 'Refs',
+      plan_id: dry.data.plan_id,
+    });
+    expect(done.data.status, done.text).toBe('applied');
+  });
+
+  it('folder moves previewed side by side all apply: a plan holds the position asked for, not the slot it works out to', async () => {
+    const x = await start();
+    const { api } = x.host;
+    for (const name of ['One', 'Two', 'Three']) await api.createFolder(name, null);
+    const plans: Record<string, string> = {};
+    for (const name of ['One', 'Two', 'Three']) {
+      const dry = await x.client.call('move_folder', { folder: name, new_parent: 'Refs' });
+      expect(dry.data.status, dry.text).toBe('dry_run');
+      plans[name] = dry.data.plan_id;
+    }
+    for (const name of ['One', 'Two', 'Three']) {
+      const r = await x.client.call('move_folder', {
+        folder: name,
+        new_parent: 'Refs',
+        plan_id: plans[name],
+      });
+      expect(r.data.status, `${name}: ${r.text}`).toBe('applied');
+    }
+    const refs = (await api.getLibraryState())!.folders.find((f) => f.name === 'Refs')!;
+    expect(refs.children.map((f) => f.name)).toEqual(['One', 'Two', 'Three']);
   });
 
   it('import_url takes only http(s) addresses and downloads one into the library', async () => {

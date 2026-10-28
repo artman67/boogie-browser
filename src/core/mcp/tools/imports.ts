@@ -227,15 +227,28 @@ export function registerImportTools(tool: Tool): void {
         async () => {
           const blocked = await blockedRoots(call, lib.ref.path);
           const files = await Promise.all(list.map((p) => checkImportPath(p, blocked)));
-          const changes: Change[] = files.map((f) => ({
+          // The same check the import runs, so the preview says which files would be skipped.
+          const existing =
+            (await call.api.findExistingFiles?.(files.map((f) => f.path))) ?? files.map(() => null);
+          const mode = rest.on_duplicate ?? 'skip';
+          const outcome = (f: { size: number }, id: string | null) =>
+            !id
+              ? `new item (${f.size} bytes)`
+              : mode === 'skip'
+                ? `skipped: already in the library as ${id}`
+                : mode === 'use-existing'
+                  ? `already in the library as ${id}: that item gets the folder and tags`
+                  : `new item, a second copy of ${id}`;
+          const changes: Change[] = files.map((f, i) => ({
             id: f.path,
             name: basename(f.path),
             field: 'import',
             before: null,
-            after: `new item (${f.size} bytes)`,
+            after: outcome(f, existing[i]),
           }));
+          const dupes = existing.filter(Boolean).length;
           return {
-            summary: `Import ${files.length === 1 ? '1 file' : `${files.length} files`} into the library${rest.folder ? ` (folder ${folders.resolve(rest.folder).path})` : ''}`,
+            summary: `Import ${files.length === 1 ? '1 file' : `${files.length} files`} into the library${rest.folder ? ` (folder ${folders.resolve(rest.folder).path})` : ''}${dupes ? `; ${dupes} already in the library (on_duplicate: ${mode})` : ''}`,
             changes,
             itemCount: files.length,
             activity: `Importing ${files.length} files`,

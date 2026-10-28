@@ -1,6 +1,7 @@
 // Plan-then-apply: a dry run mints a plan_id, a second call with that id applies it.
 // Plans live in memory only (they are cheap to redo) and are single use.
 import { createHash, randomBytes } from 'node:crypto';
+import type { Change } from './changes';
 import { UserError } from './errors';
 
 const PLAN_TTL_MS = 15 * 60_000;
@@ -12,9 +13,13 @@ export interface Plan {
   id: string;
   tool: string;
   argsHash: string;
+  /** The arguments themselves, so a mismatch can say which one differs. */
+  args: Record<string, unknown>;
   libraryId: string;
   /** Hash of the full change list the agent was shown. Recomputed at apply time to detect stale plans. */
   digest: string;
+  /** The full change list, for plan_changes to page through. */
+  changes: Change[];
   expiresAt: number;
 }
 
@@ -51,8 +56,8 @@ export class PlanStore {
     return plan;
   }
 
-  /** Look a plan up and check it belongs to exactly this call. Does not consume it. */
-  check(id: string, tool: string, argsHash: string, libraryId: string): Plan {
+  /** A live plan by id, or a clear error. Does not consume it. */
+  get(id: string): Plan {
     const plan = this.plans.get(id);
     if (!plan || plan.expiresAt <= this.now()) {
       this.plans.delete(id);
@@ -60,13 +65,27 @@ export class PlanStore {
         'That plan_id is unknown, expired (plans last 15 minutes) or was already applied. Call the tool again without plan_id to get a fresh dry run.',
       );
     }
+    return plan;
+  }
+
+  /** Look a plan up and check it belongs to exactly this call. Does not consume it. */
+  check(
+    id: string,
+    tool: string,
+    args: Record<string, unknown>,
+    argsHash: string,
+    libraryId: string,
+  ): Plan {
+    const plan = this.get(id);
     if (plan.tool !== tool)
       throw new UserError(
         `That plan_id was made for ${plan.tool}, not ${tool}. Plans only apply to the tool and arguments they were made for.`,
       );
     if (plan.argsHash !== argsHash) {
+      const keys = [...new Set([...Object.keys(plan.args), ...Object.keys(args)])];
+      const differ = keys.filter((k) => hashOf(plan.args[k] ?? null) !== hashOf(args[k] ?? null));
       throw new UserError(
-        'The arguments differ from the dry run this plan_id was made for. Call again with exactly the same arguments plus plan_id, or run a new dry run.',
+        `These arguments differ from the dry run this plan_id was made for: ${differ.join(', ') || '(their order)'}. Call again with exactly the same arguments plus plan_id, or run a new dry run.`,
       );
     }
     if (plan.libraryId !== libraryId)

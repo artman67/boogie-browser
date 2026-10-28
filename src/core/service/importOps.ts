@@ -1,7 +1,10 @@
 // Import as background jobs (files, links, pasted bytes, bookmarks, API batches), each one
 // history group. The duplicate finder is dupeOps.ts.
+import { stat } from 'node:fs/promises';
+import { extname } from 'node:path';
 import type { Actor, ImportEntry, ImportOptions, ImportResult } from '../../shared/types';
 import type { ChangeContext } from '../contracts';
+import { findExisting, sameSizeAndType } from '../import/ingest';
 import { ensureWritable, runGroup } from './group';
 import { itemsText, quoted } from './labels';
 import type { Session, Touch } from './types';
@@ -102,6 +105,24 @@ function launchImport(
     },
     { scope: s.ref.id, options: jobOptions },
   );
+}
+
+/**
+ * The duplicate check an import runs, without importing: per file, a live item with the same
+ * bytes. Only files with a same-size, same-type item get read. The type here is the file's
+ * extension; the importer sniffs, so a file whose extension lies can still differ.
+ */
+export async function findExistingFiles(s: Session, paths: string[]): Promise<(string | null)[]> {
+  const media = s.env.media();
+  return mapLimit(paths, 4, async (path) => {
+    const st = await stat(path).catch(() => null);
+    const ext = extname(path).slice(1).toLowerCase();
+    if (!st?.isFile() || !ext) return null;
+    const same = sameSizeAndType(s.index, st.size, ext);
+    if (!same.length) return null;
+    const md5 = await media.md5(path).catch(() => null);
+    return md5 ? findExisting({ index: s.index, lib: s.lib, media }, same, st.size, md5) : null;
+  });
 }
 
 /** What the API hands back for a job (the result arrives with the job's progress). */

@@ -24,7 +24,7 @@ interface PatchJob {
   /** Built once the folder tree is known, so folder names can be resolved. */
   patch: (folders: FolderIndex) => ItemPatch;
   /** The tool's arguments without plan_id/dry_run. */
-  args: unknown;
+  args: Record<string, unknown>;
   dryRun?: boolean;
   planId?: string;
   /** One plain sentence, given "3 items" (or "1 item") to put in it. */

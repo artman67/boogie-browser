@@ -8,6 +8,7 @@ import { registerItemWriteTools } from './tools/itemWrites';
 import { registerJobTools } from './tools/jobs';
 import { registerLibraryTools } from './tools/library';
 import { registerOrganizeTools } from './tools/organize';
+import { registerPlanTool } from './tools/plans';
 import { registerSmartTools } from './tools/smart';
 import { registerTagGroupTools } from './tools/tagGroups';
 import { registerUndoTool } from './tools/undo';
@@ -37,5 +38,6 @@ export function buildMcpServer(host: CoreHost, clientName = 'Agent', client = ''
   registerImportTools(tool);
   registerJobTools(tool);
   registerUndoTool(tool);
+  registerPlanTool(tool);
   return server;
 }
