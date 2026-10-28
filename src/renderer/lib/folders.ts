@@ -2,7 +2,7 @@
 // going to them.
 // Libraries have thousands of folders (6,554 in one real library), so pickers list the best
 // matches, never the whole tree.
-import { fuzzy, segments, type Segment } from './fuzzy';
+import { rank, segments, type Segment } from '../../shared/match';
 import { library } from './stores/library.svelte';
 import { view } from './stores/view.svelte';
 import type { FolderNode, Scope } from '../../shared/types';
@@ -12,59 +12,86 @@ export interface FolderHit {
   name: string;
   /** "Parent › Child" */
   path: string;
+  /** The name in matched and plain runs. */
   segs: Segment[];
-  score: number;
+  /** Where it is, short: "in … › Parent" (see whereLabels). */
+  where: string;
+  count: number;
+  /** Matched only with a typo. */
+  close: boolean;
 }
 
 export const pathText = (path: string[]) => path.join(' › ');
 
 /**
- * Folders matching `query`, best first. A hit in the folder's own name beats one that only
- * matches its parents. An empty query gives the first `limit` folders in tree order.
+ * Folders matching `query` by the shared rules (src/shared/match.ts), best first. An empty query
+ * gives the first `limit` folders in tree order.
  */
 export function searchFolders(query: string, limit = 60): FolderHit[] {
-  const q = query.trim();
-  const out: FolderHit[] = [];
-  if (!q) {
-    for (const [id, f] of library.folders) {
-      const path = pathText(f.path);
-      out.push({ id, name: f.node.name, path, segs: [{ text: path, hit: false }], score: 0 });
-      if (out.length >= limit) break;
-    }
-    return out;
-  }
-  for (const [id, f] of library.folders) {
-    const path = pathText(f.path);
-    const hit = rank(q, f.node.name, path);
-    if (hit)
-      out.push({
-        id,
-        name: f.node.name,
-        path,
-        segs: segments(path, hit.positions),
-        score: hit.score,
-      });
-  }
-  out.sort((a, b) => b.score - a.score || a.path.length - b.path.length);
-  return out.slice(0, limit);
+  const count = (id: string) => library.counts?.folders[id]?.deep ?? 0;
+  const hit = (id: string, path: string[], positions?: number[], close = false) => ({
+    id,
+    name: path[path.length - 1],
+    path: pathText(path),
+    parents: path.slice(0, -1),
+    segs: segments(path[path.length - 1], positions),
+    count: count(id),
+    close,
+  });
+  const list = query.trim()
+    ? rank(query, library.folders, ([id, f]) => ({
+        label: f.node.name,
+        parents: f.path.slice(0, -1),
+        weight: count(id),
+      }))
+        .slice(0, limit)
+        .map(({ item: [id, f], hit: h }) => hit(id, f.path, h.positions, h.close))
+    : [...library.folders].slice(0, limit).map(([id, f]) => hit(id, f.path));
+  const where = whereLabels(list);
+  return list.map(({ parents: _, ...h }, i) => ({ ...h, where: where[i] }));
 }
 
-/** Score `name` (shown at the end of `path`) against the query; positions are into `path`. */
-export function rank(
-  q: string,
-  name: string,
-  path: string,
-): { score: number; positions: number[] } | null {
-  const inName = fuzzy(q, name);
-  const inPath = path === name ? inName : fuzzy(q, path);
-  let best: { score: number; positions: number[] } | null = null;
-  if (inName)
-    best = {
-      score: inName.score + 25,
-      positions: inName.positions.map((p) => p + path.length - name.length),
-    };
-  if (inPath && (!best || inPath.score > best.score)) best = inPath;
-  return best;
+/**
+ * A short "where is it" for each folder in a list: its parent, with "… ›" when it is deeper.
+ * Folders of the same name that would read the same also show the folder where their paths part.
+ */
+export function whereLabels(list: { name: string; parents: string[] }[]): string[] {
+  const short = (parents: string[], keep = -1): string => {
+    const n = parents.length;
+    if (!n) return '';
+    const out: string[] = [];
+    let gap = false;
+    parents.forEach((p, i) => {
+      if (i !== n - 1 && i !== keep) return void (gap = true);
+      if (gap) out.push('…');
+      out.push(p);
+      gap = false;
+    });
+    return `in ${out.join(' › ')}`;
+  };
+  const plain = list.map((h) => short(h.parents));
+  const groups = new Map<string, number[]>();
+  list.forEach((h, i) => {
+    const key = `${h.name.toLowerCase()}\n${plain[i]}`;
+    groups.set(key, [...(groups.get(key) ?? []), i]);
+  });
+  for (const ix of groups.values()) {
+    if (ix.length < 2) continue;
+    for (const i of ix) {
+      const mine = list[i].parents;
+      // The shallowest level where this path differs from one of the others.
+      let k = mine.length - 1;
+      for (const j of ix) {
+        if (j === i) continue;
+        const theirs = list[j].parents;
+        let d = 0;
+        while (d < mine.length && mine[d] === theirs[d]) d++;
+        k = Math.min(k, d);
+      }
+      plain[i] = short(mine, k);
+    }
+  }
+  return plain;
 }
 
 /** `id` and every folder under it. */

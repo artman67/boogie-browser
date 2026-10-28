@@ -862,42 +862,40 @@ describe('briefs and items', () => {
 });
 
 describe('suggest', () => {
-  it('fuzzy: "mki" finds "Mockup iPhone"; prefix beats word start beats letters-in-order, then count', () => {
+  it('matches words, not scattered letters; better match first, then bigger folders', () => {
     const s = new Fixture(
       makeRoot([
         folder('F1', 'Mockup iPhone'),
         folder('F2', 'Smock'),
         folder('F3', 'Mock ups'),
         folder('F4', 'Art', [folder('F5', 'Kitchen mixups')]),
+        folder('F6', 'Mi Kitchen'),
       ]),
     );
     s.add({ name: 'x', folders: ['F1'] });
     s.add({ name: 'y', folders: ['F3'] });
     s.add({ name: 'z', folders: ['F3'] });
+    s.add({ name: 'w', folders: ['F5'] });
     s.add({ name: 'gone', folders: ['F1'], isDeleted: true });
     const eng = s.engine();
-    const labels = (
-      text: string,
-      kinds: ('tag' | 'folder' | 'smartFolder')[] = ['folder'],
-      limit = 10,
-    ) => eng.suggest(text, kinds, limit).map((r) => r.label);
+    const labels = (text: string) => eng.suggest(text, ['folder'], 10).map((r) => r.label);
 
-    expect(labels('mki')).toContain('Mockup iPhone');
-    expect(labels('mock')).toEqual(['Mock ups', 'Mockup iPhone', 'Smock']); // prefix (more items first), then letters in order
-    expect(labels('iph')).toEqual(['Mockup iPhone']); // starts a word
-    expect(labels('kitmix')).toEqual(['Kitchen mixups']);
-    expect(labels('art kit')).toEqual(['Kitchen mixups']); // matches through the path "Art / Kitchen mixups"
-    expect(labels('zzz')).toEqual([]);
+    expect(labels('mock')).toEqual(['Mock ups', 'Mockup iPhone', 'Smock']); // word, word start, inside
+    expect(labels('iph')).toEqual(['Mockup iPhone']); // "iPhone" typed without the hump
+    expect(labels('mki')).toEqual([]); // letters in order are not a match
+    expect(labels('art kit')).toEqual(['Kitchen mixups']); // through the folder above
+    expect(labels('kitchen')).toEqual(['Kitchen mixups', 'Mi Kitchen']); // more items first
+    expect(labels('kitchn')).toEqual(['Kitchen mixups', 'Mi Kitchen']); // one typo, as nothing else matched
     expect(eng.suggest('mock', ['folder'], 1)).toHaveLength(1);
-    const hit = eng.suggest('iph', ['folder'], 5)[0];
-    expect(hit).toEqual({
+    expect(eng.suggest('iph', ['folder'], 5)[0]).toEqual({
       kind: 'folder',
       id: 'F1',
       label: 'Mockup iPhone',
       path: 'Mockup iPhone',
       count: 1,
     }); // the trashed item is not counted
-    expect(eng.suggest('kitmix', ['folder'], 5)[0].path).toBe('Art / Kitchen mixups');
+    // A folder counts the items in the folders under it.
+    expect(eng.suggest('art', ['folder'], 5)[0]).toMatchObject({ id: 'F4', count: 1 });
   });
 
   it('tags: counted from live items; tags that only live in a tag group show with 0', () => {

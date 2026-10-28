@@ -2,6 +2,7 @@
   // A row of tag chips with a text box: Enter or comma adds, Backspace removes the last,
   // and matching existing tags are suggested underneath.
   import X from '@lucide/svelte/icons/x';
+  import { rank } from '../../../shared/match';
   import { canonicalTag } from '../../lib/tags';
   import { onEscape } from './escape';
 
@@ -27,7 +28,12 @@
   const query = $derived(text.trim().toLowerCase());
   const matches = $derived(
     query
-      ? suggestions.filter((t) => !tags.includes(t) && t.toLowerCase().includes(query)).slice(0, 8)
+      ? rank(
+          query,
+          suggestions.filter((t) => !tags.includes(t)),
+          (t) => ({ label: t }),
+          8,
+        ).map((r) => r.item)
       : [],
   );
 

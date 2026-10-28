@@ -59,7 +59,7 @@ export interface CoreApi {
   getItems(ids: string[]): Promise<Item[]>;
   getCounts(): Promise<Counts>;
   listTags(): Promise<TagInfo[]>;
-  /** Fuzzy suggestions for the command bar / tag input / folder picker. */
+  /** Name suggestions (shared/match.ts rules) for the command bar / tag input / folder picker. */
   suggest(
     text: string,
     kinds: ('tag' | 'folder' | 'smartFolder')[],

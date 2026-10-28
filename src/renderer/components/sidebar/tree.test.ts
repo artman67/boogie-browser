@@ -177,12 +177,18 @@ describe('filterFolders', () => {
     ['4', ['Mucha']],
     ['5', ['Sketches']],
   ]);
-  it('puts names that start with the text first, then shallower ones, any case', () => {
+  it('puts the exact name first, then shallower ones, any case', () => {
     const { hits, total } = filterFolders(lib, ' MUCHA ');
     expect(total).toBe(4);
-    expect(hits.map((h) => h.id)).toEqual(['4', '3', '2', '1']);
-    expect(hits[1]).toMatchObject({ parents: ['Master Artists', 'alphonse Mucha'], at: 0 });
-    expect(hits[3].at).toBe(7);
+    // The exact name first, then the shallower folder, then the shorter name.
+    expect(hits.map((h) => h.id)).toEqual(['4', '2', '1', '3']);
+    expect(hits[1]).toMatchObject({ parents: ['Master Artists'] });
+    expect(hits[2].segs).toEqual([
+      { text: 'Alfons_', hit: false },
+      { text: 'Mucha', hit: true },
+    ]);
+    // Item counts break ties.
+    expect(filterFolders(lib, 'mucha', 50, (id) => (id === '3' ? 9 : 0)).hits[1].id).toBe('3');
   });
   it('caps the list but counts every match', () => {
     expect(filterFolders(lib, 'mucha', 2)).toMatchObject({ total: 4 });
