@@ -135,7 +135,7 @@
     })();
   });
 
-  // Fuzzy suggestions for what you type (the core knows the tag counts and ranking).
+  // Suggestions for what you type (the core knows the tag counts and ranking).
   let seq = 0;
   $effect(() => {
     const q = text.trim();

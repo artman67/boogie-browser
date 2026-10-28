@@ -1,5 +1,5 @@
 <script lang="ts">
-  // Three overlays share this fuzzy folder list. "add" (F, Ctrl+Shift+J, like Eagle's F tool) adds
+  // Three overlays share this folder list. "add" (F, Ctrl+Shift+J, like Eagle's F tool) adds
   // the selected items to a folder; Shift+Enter moves them out of the folder you are viewing
   // instead. "move" (M, the selection bar's Move to) is the other way round: Enter moves, Shift+Enter
   // adds. "goto" (Ctrl+J) just opens the folder.
