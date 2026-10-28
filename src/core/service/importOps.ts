@@ -4,7 +4,7 @@ import { stat } from 'node:fs/promises';
 import { extname } from 'node:path';
 import type { Actor, ImportEntry, ImportOptions, ImportResult } from '../../shared/types';
 import type { ChangeContext } from '../contracts';
-import { findExisting, sameSizeAndType } from '../import/ingest';
+import { extAliases, findExisting, sameSizeAndType } from '../import/ingest';
 import { ensureWritable, runGroup } from './group';
 import { itemsText, quoted } from './labels';
 import type { Session, Touch } from './types';
@@ -109,19 +109,46 @@ function launchImport(
 
 /**
  * The duplicate check an import runs, without importing: per file, a live item with the same
- * bytes. Only files with a same-size, same-type item get read. The type here is the file's
- * extension; the importer sniffs, so a file whose extension lies can still differ.
+ * bytes, or an earlier file in the same list (the importer skips that one too). Only files that
+ * share a size and type with something get read. The type here is the file's extension; the
+ * importer sniffs, so a file whose extension lies can still differ.
  */
-export async function findExistingFiles(s: Session, paths: string[]): Promise<(string | null)[]> {
+export async function findExistingFiles(
+  s: Session,
+  paths: string[],
+): Promise<({ id: string } | { path: string } | null)[]> {
   const media = s.env.media();
-  return mapLimit(paths, 4, async (path) => {
+  const files = await mapLimit(paths, 8, async (path) => {
     const st = await stat(path).catch(() => null);
     const ext = extname(path).slice(1).toLowerCase();
-    if (!st?.isFile() || !ext) return null;
-    const same = sameSizeAndType(s.index, st.size, ext);
-    if (!same.length) return null;
+    return st?.isFile() && ext
+      ? { size: st.size, ext, key: `${st.size}:${extAliases(ext)[0]}` }
+      : null;
+  });
+  const keys = new Map<string, number>();
+  for (const f of files) if (f) keys.set(f.key, (keys.get(f.key) ?? 0) + 1);
+  const hashed = await mapLimit(paths, 4, async (path, i) => {
+    const f = files[i];
+    if (!f) return null;
+    const inLibrary = sameSizeAndType(s.index, f.size, f.ext);
+    if (!inLibrary.length && keys.get(f.key)! < 2) return null; // nothing it could match
     const md5 = await media.md5(path).catch(() => null);
-    return md5 ? findExisting({ index: s.index, lib: s.lib, media }, same, st.size, md5) : null;
+    const id =
+      md5 && inLibrary.length
+        ? await findExisting({ index: s.index, lib: s.lib, media }, inLibrary, f.size, md5)
+        : null;
+    return { md5, id };
+  });
+  const seen = new Map<string, string>();
+  return paths.map((path, i) => {
+    const h = hashed[i];
+    if (!h?.md5) return null;
+    if (h.id) return { id: h.id };
+    const key = `${files[i]!.key}:${h.md5}`;
+    const earlier = seen.get(key);
+    if (earlier) return { path: earlier };
+    seen.set(key, path);
+    return null;
   });
 }
 

@@ -36,7 +36,9 @@ interface Group {
   field: string;
   before: unknown;
   after: unknown;
+  in_trash?: true;
   count: number;
+  /** "name (id)": names alone repeat when items are copies. */
   examples: string[];
 }
 
@@ -46,13 +48,13 @@ function groupChanges(changes: Change[]): Group[] {
   for (const c of changes) {
     const key = JSON.stringify([c.field, c.before, c.after, c.in_trash ?? false]);
     let g = groups.get(key);
-    if (!g)
-      groups.set(
-        key,
-        (g = { field: c.field, before: c.before, after: c.after, count: 0, examples: [] }),
-      );
+    if (!g) {
+      g = { field: c.field, before: c.before, after: c.after, count: 0, examples: [] };
+      if (c.in_trash) g.in_trash = true;
+      groups.set(key, g);
+    }
     g.count++;
-    if (g.examples.length < EXAMPLES) g.examples.push(c.name);
+    if (g.examples.length < EXAMPLES) g.examples.push(`${c.name} (${c.id})`);
   }
   return [...groups.values()].sort((a, b) => b.count - a.count);
 }
@@ -64,13 +66,17 @@ const isList = (v: unknown): v is unknown[] => Array.isArray(v);
  * removing folders: those items end up uncategorized (not deleted, but easy to lose track of).
  */
 function leftInNoFolder(changes: Change[]): { count: number; examples: string[] } | null {
+  // Items this same change sends to the trash (delete_folder with delete_contents) aren't left anywhere.
+  const toTrash = new Set(
+    changes.filter((c) => c.field === 'in_trash' && c.after === true).map((c) => c.id),
+  );
   let removes = false;
   const left: string[] = [];
   for (const c of changes) {
     if (c.field !== 'folders' || !isList(c.before) || !isList(c.after)) continue;
     if (c.after.length >= c.before.length) continue;
     removes = true;
-    if (c.after.length === 0 && !c.in_trash) left.push(c.name);
+    if (c.after.length === 0 && !c.in_trash && !toTrash.has(c.id)) left.push(`${c.name} (${c.id})`);
   }
   return removes ? { count: left.length, examples: left.slice(0, 5) } : null;
 }
@@ -145,11 +151,7 @@ export function diffPatch(item: Item, patch: ItemPatch, folders: FolderIndex): C
     if (patch.removeFolders) folderIds = folderIds.filter((f) => !patch.removeFolders!.includes(f));
     if (patch.addFolders) folderIds = uniq([...folderIds, ...patch.addFolders]);
   }
-  push(
-    'folders',
-    item.folders.map((f) => folders.pathOf(f)),
-    folderIds.map((f) => folders.pathOf(f)),
-  );
+  push('folders', folders.existingPaths(item.folders), folders.existingPaths(folderIds));
 
   let tags = item.tags;
   if (patch.setTags) tags = uniq(patch.setTags);

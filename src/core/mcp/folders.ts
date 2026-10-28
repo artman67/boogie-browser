@@ -69,6 +69,18 @@ export class FolderIndex {
     return this.byId.get(id)?.path ?? id;
   }
 
+  /**
+   * Paths of the ids that are folders in this library. Items can carry ids of folders that are
+   * gone (copied in from another library, or the partner's Eagle dropped the folder); those are
+   * no home, so previews leave them out rather than show a raw id as if it were a folder.
+   */
+  existingPaths(ids: string[]): string[] {
+    return ids.flatMap((id) => {
+      const e = this.byId.get(id);
+      return e ? [e.path] : [];
+    });
+  }
+
   /** The folder and everything under it. */
   subtreeIds(id: string): string[] {
     const out: string[] = [];

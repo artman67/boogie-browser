@@ -29,6 +29,11 @@ export interface Draft {
   emptyNote?: string;
   /** Anything else that should invalidate a plan when it changes (file sizes of imports). */
   digestExtra?: unknown;
+  /**
+   * Extra detail for a dry run only (it never runs at apply, and isn't part of the digest): for
+   * checks too slow to repeat on every apply, like hashing files for an import preview.
+   */
+  preview?(): Promise<{ summary?: string; changes?: Change[] }>;
   /** `progress(done)` updates the status strip; most writes are one call and ignore it. */
   apply(progress: (done: number) => void): Promise<Applied>;
 }
@@ -84,22 +89,23 @@ export async function runWrite(
   const needsPlan = mode.kind === 'changing' || draft.itemCount > DIRECT_WRITE_LIMIT;
 
   if (!plan && (needsPlan || mode.dryRun)) {
+    const shown = { summary: draft.summary, changes: draft.changes, ...(await draft.preview?.()) };
     const minted = plans.mint({
       tool: mode.tool,
       argsHash,
       args: mode.args,
       libraryId: lib.ref.id,
       digest,
-      changes: draft.changes,
+      changes: shown.changes,
     });
     return {
       status: 'dry_run',
-      summary: draft.summary,
+      summary: shown.summary,
       item_count: draft.itemCount,
       plan_id: minted.id,
       plan_expires_at: iso(minted.expiresAt),
       how_to_apply: `Nothing was changed. To apply exactly this, call ${mode.tool} again with the same arguments plus plan_id "${minted.id}" (valid 15 minutes).`,
-      ...displayChanges(draft.changes),
+      ...displayChanges(shown.changes),
     };
   }
 

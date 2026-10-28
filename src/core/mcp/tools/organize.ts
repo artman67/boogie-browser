@@ -35,6 +35,7 @@ export async function tooBigToDelete(
   idx: FolderIndex,
   id: string,
   count: number,
+  trashToo = false,
 ): Promise<UserError> {
   const { folders } = await api.getCounts();
   const fits = idx
@@ -49,11 +50,19 @@ export async function tooBigToDelete(
     })
     .sort((a, b) => b.n - a.n)
     .slice(0, 10);
-  const how = fits.length
-    ? `Delete these subfolders first, then this one (counts leave out trashed items, which also count toward the limit): ${fits
+  const same = trashToo ? ' (each with delete_contents true, as here)' : '';
+  // Taking items out first would leave them in no folder, so with delete_contents they are trashed instead.
+  const removeFirst = trashToo
+    ? 'move its items that are in no other folder to the trash with move_to_trash and take the rest out with remove_from_folders, in batches of 500 or fewer, then delete the folder'
+    : 'take items out of it with remove_from_folders in batches of 500 or fewer, then delete the folder';
+  const freed = fits.reduce((sum, f) => sum + f.n, 0);
+  const how = !fits.length
+    ? `To split it, ${removeFirst}.`
+    : `Delete these subfolders first${same}, then this one (counts leave out trashed items, which also count toward the limit): ${fits
         .map(({ sub, n }) => `${idx.pathOf(sub)} (${sub}, ${plural(n, 'item')})`)
-        .join('; ')}.`
-    : 'Take items out first with remove_from_folders in batches of 500 or fewer, then delete the folder.';
+        .join(
+          '; ',
+        )}.${count - freed > MAX_ITEMS_PER_APPLY ? ` That still leaves over ${MAX_ITEMS_PER_APPLY}: then ${removeFirst}.` : ''}`;
   return tooMany(count, how);
 }
 
@@ -298,6 +307,12 @@ export function registerOrganizeTools(tool: Tool): void {
       const idx = new FolderIndex(lib.folders);
       const f = idx.resolve(folder);
       const doomed = new Set(idx.subtreeIds(f.id));
+      // Searches hide items in password-locked folders, so a preview here would miss them.
+      const locked = [...doomed].map((id) => idx.get(id)!).find((e) => e.node.hasPassword);
+      if (locked)
+        throw new UserError(
+          `"${locked.path}" has a password, so its items can't be previewed from here. Ask the user to delete it in the app.`,
+        );
       const trashToo = delete_contents === true;
       return runWrite(
         call,
@@ -313,7 +328,7 @@ export function registerOrganizeTools(tool: Tool): void {
             folders: { include: [...doomed], exclude: [] },
           });
           if (ids.length > MAX_ITEMS_PER_APPLY)
-            throw await tooBigToDelete(call.api, idx, f.id, ids.length);
+            throw await tooBigToDelete(call.api, idx, f.id, ids.length, trashToo);
           // Live items first: trashed ones only matter for the count, so they shouldn't fill the preview.
           const items = (await fetchItems(call.api, ids)).sort(
             (a, b) => Number(a.isDeleted) - Number(b.isDeleted),
@@ -334,10 +349,11 @@ export function registerOrganizeTools(tool: Tool): void {
               id: it.id,
               name: it.name,
               field: 'folders',
-              before: it.folders.map((id) => idx.pathOf(id)),
-              after: left.map((id) => idx.pathOf(id)),
+              before: idx.existingPaths(it.folders),
+              after: idx.existingPaths(left),
               ...(it.isDeleted ? { in_trash: true as const } : {}),
             });
+            // Same rule as the core: any folder id left, even one that is gone, keeps it out of the trash.
             if (trashToo && left.length === 0 && !it.isDeleted)
               changes.push({
                 id: it.id,

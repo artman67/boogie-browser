@@ -41,18 +41,20 @@ export function computeCounts(st: Statements, folderNumbers: FolderNumbers): Cou
   // Per item, its folders that exist each count it once as their own, and every ancestor of any
   // of them counts it once deep. Folders are numbered (tree order) so this runs on typed arrays:
   // item_folders is read in item order, so `mark` (the last item an ancestor counted) dedupes.
-  // `common` is the item's folders' shared ancestors so far (the folders whose subtree holds all
-  // of them); when the item ends, each of those counts it as `only`.
+  // `only`: an ancestor reached from every one of the item's k folders (hits === k) holds them
+  // all, so deleting it leaves the item in no folder. Checked when the item's rows end.
   const { ids, number, ancestors } = folderNumbers;
   const own = new Int32Array(ids.length);
   const deep = new Int32Array(ids.length);
   const only = new Int32Array(ids.length);
+  const hits = new Int32Array(ids.length);
   const mark = new Int32Array(ids.length).fill(-1);
   const trashed = new Set(st.trashedRowids.all() as number[]);
   let current = -1;
-  let common: Int32Array | null = null;
+  let first = -1;
+  let k = 0;
   const settle = () => {
-    if (common) for (const a of common) only[a]++;
+    if (first >= 0) for (const a of ancestors[first]) if (hits[a] === k) only[a]++;
   };
   for (const [rowid, folderId] of st.folderPairs.all() as [number, string][]) {
     const f = number.get(folderId);
@@ -60,15 +62,18 @@ export function computeCounts(st: Statements, folderNumbers: FolderNumbers): Cou
     if (rowid !== current) {
       settle();
       current = rowid;
-      common = ancestors[f];
-    } else if (common!.length) {
-      const mine = ancestors[f];
-      common = common!.filter((a) => mine.includes(a));
+      first = f;
+      k = 0;
     }
+    k++;
     own[f]++;
     for (const a of ancestors[f]) {
-      if (mark[a] === rowid) continue;
+      if (mark[a] === rowid) {
+        hits[a]++;
+        continue;
+      }
       mark[a] = rowid;
+      hits[a] = 1;
       deep[a]++;
     }
   }
