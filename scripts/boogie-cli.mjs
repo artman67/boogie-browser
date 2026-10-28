@@ -33,6 +33,13 @@ function fail(msg, code = 1) {
   process.exit(code);
 }
 
+// process.exit drops whatever stdout hasn't written yet, and a pipe takes only 64 KB at a time, so
+// a big answer piped into another program came out cut short. Wait for stdout to drain first.
+async function exit(code) {
+  await new Promise((done) => process.stdout.write('', done));
+  process.exit(code);
+}
+
 function settings() {
   try {
     return JSON.parse(readFileSync(join(config, 'settings.json'), 'utf8'));
@@ -223,7 +230,7 @@ if (!cmd || cmd === 'help' || cmd === '--help' || cmd === '-h') {
     console.log('Tools:');
     for (const t of tools) console.log(`  ${t.name.padEnd(24)} ${firstLine(t.description)}`);
   }
-  process.exit(0);
+  await exit(0);
 }
 
 const tool = tools.find((t) => t.name === cmd) ?? fail(`No tool named "${cmd}". Run: boogie`);
@@ -253,4 +260,4 @@ for (const [i, c] of (result.content ?? []).entries()) {
     console.log(`[image saved: ${file}]`);
   }
 }
-process.exit(result.isError ? 1 : 0);
+await exit(result.isError ? 1 : 0);
