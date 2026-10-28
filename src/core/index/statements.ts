@@ -1,11 +1,12 @@
 // The index's SQL: the item columns, the search text expression, and every prepared statement the
 // index runs (the query engine prepares its own). Kept apart from the logic that uses them.
 import type Database from 'better-sqlite3';
+import { markWords } from '../../shared/match';
 import { LOCKED_ROWIDS } from './folders';
 import type { ItemRow } from './project';
 
 /** The FTS/search fields of item `i`, rebuilt from the tables (projectRecord's order and joins). */
-const FIELDS_SQL = [
+export const SEARCH_FIELDS_SQL = [
   'i.name',
   "COALESCE((SELECT group_concat(tag, char(10)) FROM item_tags WHERE item_rowid = i.rowid), '')",
   'i.annotation',
@@ -15,12 +16,12 @@ const FIELDS_SQL = [
   'i.comments',
   "COALESCE((SELECT group_concat(fo.description, char(10)) FROM item_folders f JOIN folders fo ON fo.id = f.folder_id WHERE f.item_rowid = i.rowid AND fo.description <> ''), '')",
 ];
-export const SEARCH_SQL = `boogie_lower(${FIELDS_SQL.join(' || char(10) || ')})`;
+export const SEARCH_SQL = `boogie_search_text(${SEARCH_FIELDS_SQL.join(' || char(2) || ')})`; // SEARCH_FIELD_SEP
 
-/** JS toLowerCase for SQL (SQLite's lower() folds ASCII only). */
+/** item_search's text for SQL: markWords (JS toLowerCase; SQLite's lower() folds ASCII only). */
 export function registerFunctions(db: Database.Database): void {
-  db.function('boogie_lower', { deterministic: true }, (s: unknown) =>
-    typeof s === 'string' ? s.toLowerCase() : '',
+  db.function('boogie_search_text', { deterministic: true }, (s: unknown) =>
+    typeof s === 'string' ? markWords(s) : '',
   );
 }
 
@@ -116,7 +117,7 @@ export function prepare(db: Database.Database) {
     // (lists joined with a newline, like projectRecord's FTS_SEP).
     rebuildFtsFor: db.prepare(
       `INSERT INTO items_fts (rowid, name, tags, annotation, url, folder_names, ext, comments, folder_descriptions)
-       SELECT i.rowid, ${FIELDS_SQL.join(', ')}
+       SELECT i.rowid, ${SEARCH_FIELDS_SQL.join(', ')}
        FROM items i WHERE i.rowid IN (SELECT item_rowid FROM item_folders WHERE folder_id IN (SELECT value FROM json_each(?)))`,
     ),
     rebuildSearchFor: db.prepare(

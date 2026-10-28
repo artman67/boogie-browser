@@ -31,7 +31,7 @@
   import { ui } from '../../lib/stores/ui.svelte';
   import { view } from '../../lib/stores/view.svelte';
   import { filterUi } from '../filters/filterUi.svelte';
-  import { addMenu, currentSort, sortMenu } from './menus';
+  import { addMenu, bestMatch, currentSort, sortMenu } from './menus';
 
   const sort = $derived(currentSort());
   const SortIcon = $derived(sort.ascending ? ArrowUpNarrowWide : ArrowDownWideNarrow);
@@ -101,7 +101,7 @@
 
   <button
     class="ib"
-    title="Sort: {sortLabel(sort)}"
+    title="Sort: {bestMatch() ? 'Best match' : sortLabel(sort)}"
     aria-label="Sort"
     disabled={noLib}
     aria-haspopup="menu"

@@ -40,7 +40,7 @@ export const SearchInput = z.strictObject({
     .string()
     .optional()
     .describe(
-      'Keywords over names, tags, notes and URLs: space = AND, -word excludes, OR, "phrase", ( ).',
+      'Keywords over names, tags, notes, URLs and folder names. Each word matches the start of a word ("arm" finds "Armchair", not "Charmoy"); a "quoted phrase" matches anywhere. space = AND, -word excludes, OR, ( ). Results come best match first unless sort_by or ascending is given.',
     ),
   tags: z.array(z.string()).optional(),
   tags_mode: z
@@ -84,7 +84,7 @@ export const SearchInput = z.strictObject({
     .enum(Object.keys(SORTS) as [string, ...string[]])
     .optional()
     .describe(
-      'Default newest imported first. name and ext sort A to Z, the others biggest or newest first; ascending flips that.',
+      'Default newest imported first (best match first with a query). name and ext sort A to Z, the others biggest or newest first; ascending flips that.',
     ),
   ascending: z.boolean().optional(),
   limit: z.number().int().min(1).max(500).optional().describe('Default 50.'),
@@ -220,6 +220,9 @@ export function registerItemTools(tool: Tool): void {
         offset,
         returned: items.length,
         has_more: offset + items.length < result.total,
+        ...(result.partialKeywords
+          ? { note: 'No word starts with the query, so these items match it inside a word.' }
+          : {}),
         ...(state.indexing
           ? {
               warning: `The library is still being indexed (${state.indexing.done} of ${state.indexing.total}), so results may be incomplete. Try again in a moment.`,

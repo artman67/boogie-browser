@@ -7,15 +7,18 @@
 // Malformed input (unbalanced quote or paren, dangling OR, empty group) degrades to a plain AND of
 // the words that are left, so a half-typed query still narrows the grid instead of erroring.
 
+import { markWords, WORD_MARK } from '../../../shared/match';
 import { cleanText, frag, joinFrags, not, type SqlFrag } from './sql';
 
 export type KeywordNode =
-  | { kind: 'term'; text: string }
+  /** `exact`: a "quoted phrase", matched anywhere as typed (an unquoted term starts a word). */
+  | { kind: 'term'; text: string; exact?: true }
   | { kind: 'and'; children: KeywordNode[] }
   | { kind: 'or'; children: KeywordNode[] }
   | { kind: 'not'; child: KeywordNode };
 
-type Token = { t: 'word'; v: string } | { t: 'lp' } | { t: 'rp' } | { t: 'or' } | { t: 'neg' };
+type Token =
+  { t: 'word'; v: string; exact?: true } | { t: 'lp' } | { t: 'rp' } | { t: 'or' } | { t: 'neg' };
 
 class ParseError extends Error {}
 
@@ -48,7 +51,7 @@ function tokenize(input: string): Token[] {
         .slice(i + 1, end)
         .replace(/\s+/g, ' ')
         .trim();
-      if (phrase) out.push({ t: 'word', v: phrase });
+      if (phrase) out.push({ t: 'word', v: phrase, exact: true });
       i = end + 1;
     } else if (
       c === '-' &&
@@ -116,7 +119,7 @@ function parseTokens(tokens: Token[]): KeywordNode | null {
     }
     if (t.t === 'word') {
       pos++;
-      return { kind: 'term', text: t.v };
+      return t.exact ? { kind: 'term', text: t.v, exact: true } : { kind: 'term', text: t.v };
     }
     throw new ParseError('unexpected token');
   };
@@ -162,61 +165,109 @@ export function parseKeywords(input: string): KeywordNode | null {
 
 // ── SQL ──
 
+/**
+ * 'words': an unquoted term matches the start of a word ("arm" finds "Arm of Eve" and "armchair",
+ * not "Charmoy"). 'partial': every term matches anywhere, as Eagle does (the fallback when a
+ * search finds nothing by word starts).
+ */
+export type KeywordMode = 'words' | 'partial';
+
 const codepoints = (s: string): number => [...s].length;
 
 /** FTS5 phrase syntax: wrap in double quotes, double the quotes inside. */
 const ftsPhrase = (s: string): string => `"${s.replace(/"/g, '""')}"`;
 
-function leafSql(text: string): SqlFrag {
+// Scripts written without spaces have no word starts to look for: their terms match anywhere.
+const UNSPACED =
+  /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}\p{Script=Thai}]/u;
+
+/**
+ * The term as item_search holds it when it has to start a word (WORD_MARK before each word, the
+ * text lowercased), or null when it matches anywhere: a "quoted phrase", the partial mode, an
+ * unspaced script, or a term with no letters or digits.
+ */
+export function wordForm(
+  term: string,
+  exact: boolean | undefined,
+  mode: KeywordMode,
+): string | null {
+  if (mode !== 'words' || exact || UNSPACED.test(term)) return null;
+  const marked = markWords(term);
+  return marked.includes(WORD_MARK) ? marked : null;
+}
+
+function leafSql(text: string, word: string | null): SqlFrag {
+  let match: SqlFrag;
   if (codepoints(text) >= 3) {
     // trigram FTS: case-insensitive substring over everything Eagle's keyword search covers (name,
-    // tags, note, url, comments, folder names and descriptions, ext).
-    const match = frag(
-      'i.rowid IN (SELECT rowid FROM items_fts WHERE items_fts MATCH ?)',
-      ftsPhrase(text),
-    );
-    // ".png" is how people type an extension; the ext column holds "png".
-    if (text.startsWith('.') && text.length > 1) {
-      return frag(
-        `(${match.sql} OR instr(i.ext, ?) > 0)`,
-        ...match.params,
-        text.slice(1).toLowerCase(),
-      );
-    }
-    return match;
+    // tags, note, url, comments, folder names and descriptions, ext). For a word start, its hits
+    // are the candidates and item_search's marked text says which have the term at a word start.
+    match = word
+      ? frag(
+          `i.rowid IN (SELECT s.item_rowid FROM items_fts f JOIN item_search s ON s.item_rowid = f.rowid
+            WHERE items_fts MATCH ? AND instr(s.text, ?) > 0)`,
+          ftsPhrase(text),
+          word,
+        )
+      : frag('i.rowid IN (SELECT rowid FROM items_fts WHERE items_fts MATCH ?)', ftsPhrase(text));
+  } else {
+    // Under 3 characters the trigram index can't help: scan item_search, the same fields lowercased
+    // with JS toLowerCase (so a typed "é" finds "École"; the term never holds a field or list
+    // separator, so it can't match across two fields or two tags) and with WORD_MARK before every
+    // word (dropped again to match anywhere).
+    match = word
+      ? frag('i.rowid IN (SELECT item_rowid FROM item_search WHERE instr(text, ?) > 0)', word)
+      : frag(
+          "i.rowid IN (SELECT item_rowid FROM item_search WHERE instr(replace(text, char(1), ''), ?) > 0)",
+          text.toLowerCase(),
+        );
   }
-  // Under 3 characters the trigram index can't help: scan item_search, the same fields one per
-  // line and lowercased with JS toLowerCase (so a typed "é" finds "École"; the term never holds a
-  // newline, so it can't match across two fields or two tags).
-  return frag(
-    'i.rowid IN (SELECT item_rowid FROM item_search WHERE instr(text, ?) > 0)',
-    text.toLowerCase(),
-  );
+  // ".png" is how people type an extension; the ext column holds "png".
+  if (text.startsWith('.') && text.length > 1)
+    return frag(
+      `(${match.sql} OR instr(i.ext, ?) > 0)`,
+      ...match.params,
+      text.slice(1).toLowerCase(),
+    );
+  return match;
 }
 
 /** Library names are sometimes NFD and what people type is NFC (or the reverse): try both forms. */
-function termSql(text: string): SqlFrag {
+function termSql(text: string, exact: boolean | undefined, mode: KeywordMode): SqlFrag {
   const forms = [...new Set([text.normalize('NFC'), text.normalize('NFD')])];
-  return joinFrags(forms.map(leafSql), 'OR');
+  return joinFrags(
+    forms.map((f) => leafSql(f, wordForm(f, exact, mode))),
+    'OR',
+  );
 }
 
 /** Every fragment evaluates to 0 or 1, never NULL, so NOT is safe. */
-export function keywordsToSql(node: KeywordNode): SqlFrag {
+export function keywordsToSql(node: KeywordNode, mode: KeywordMode = 'words'): SqlFrag {
   switch (node.kind) {
     case 'term':
-      return termSql(node.text);
+      return termSql(node.text, node.exact, mode);
     case 'not':
-      return not(keywordsToSql(node.child));
+      return not(keywordsToSql(node.child, mode));
     case 'and':
     case 'or':
-      return joinFrags(node.children.map(keywordsToSql), node.kind === 'and' ? 'AND' : 'OR');
+      return joinFrags(
+        node.children.map((c) => keywordsToSql(c, mode)),
+        node.kind === 'and' ? 'AND' : 'OR',
+      );
   }
 }
 
 /** The plain-text terms a query looks for (used by tests and by callers that highlight matches). */
 export function keywordTerms(node: KeywordNode | null): string[] {
+  return positiveTerms(node).map((t) => t.text);
+}
+
+export type KeywordTerm = Extract<KeywordNode, { kind: 'term' }>;
+
+/** The terms a query looks for, not the ones it excludes. */
+export function positiveTerms(node: KeywordNode | null): KeywordTerm[] {
   if (!node) return [];
-  if (node.kind === 'term') return [node.text];
+  if (node.kind === 'term') return [node];
   if (node.kind === 'not') return [];
-  return node.children.flatMap(keywordTerms);
+  return node.children.flatMap(positiveTerms);
 }

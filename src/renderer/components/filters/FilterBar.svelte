@@ -11,7 +11,7 @@
   import LockOpen from '@lucide/svelte/icons/lock-open';
   import { registerCommands, type CommandContext } from '../../lib/commands.svelte';
   import { readOnlyTip } from '../../lib/edit';
-  import { quoted } from '../../lib/format';
+  import { plural, quoted } from '../../lib/format';
   import { library } from '../../lib/stores/library.svelte';
   import { ui } from '../../lib/stores/ui.svelte';
   import { view } from '../../lib/stores/view.svelte';
@@ -239,7 +239,15 @@
     <button class="add" bind:this={filterUi.barAnchor} onclick={openFilterMenu}
       ><Plus size={13} />Filter</button
     >
-    {#if view.result}
+    {#if view.result?.partialKeywords}
+      <span class="res"
+        >No words start with {quoted(view.filter.keywords?.trim() ?? '')}. Showing {plural(
+          view.result.ids.length,
+          'partial match',
+          'partial matches',
+        )}.</span
+      >
+    {:else if view.result}
       <span class="res">
         {#if scopeTotal !== null}<b>{view.result.total.toLocaleString()}</b> of {scopeTotal.toLocaleString()}{:else}<b
             >{view.result.total.toLocaleString()}</b

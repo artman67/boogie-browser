@@ -4,7 +4,7 @@
 import type { FilterSpec, RangeFilter } from '../../../shared/types';
 import { stringList } from '../project';
 import type { ColorQuery } from './color';
-import { keywordsToSql, parseKeywords } from './keywords';
+import { keywordsToSql, parseKeywords, type KeywordMode } from './keywords';
 import { AUDIO_EXTS, FONT_EXTS, VIDEO_EXTS } from './smartFolders';
 import {
   FALSE,
@@ -136,10 +136,11 @@ const GRAYSCALE = frag(
      AND (abs(p.r - p.g) >= 8 OR abs(p.r - p.b) >= 8 OR abs(p.g - p.b) >= 8))`,
 );
 
-/** `now` anchors the rolling "last N days" windows. */
+/** `now` anchors the rolling "last N days" windows; `mode` is how keyword terms match. */
 export function compileFilter(
   f: FilterSpec | undefined | null,
   now: number = Date.now(),
+  mode: KeywordMode = 'words',
 ): CompiledFilter {
   const where: SqlFrag[] = [];
   const add = (x: SqlFrag | null): void => {
@@ -150,7 +151,7 @@ export function compileFilter(
   // keywords (Eagle grammar)
   if (typeof f.keywords === 'string') {
     const ast = parseKeywords(f.keywords);
-    if (ast) add(keywordsToSql(ast));
+    if (ast) add(keywordsToSql(ast, mode));
   }
 
   // tags. "No tags" joins an "any" list the way Eagle's OR mode does (these tags, or none at all);

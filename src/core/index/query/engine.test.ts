@@ -192,15 +192,16 @@ describe('keyword filter', () => {
     expect(kw('.jpg')).toHaveLength(4);
   });
 
-  it('terms under 3 characters are found too (LIKE path)', () => {
+  it('terms under 3 characters are found too (item_search path)', () => {
     expect(kw('ui')).toEqual(['Clip', 'Mockup iPhone']); // tags
-    expect(kw('mp')).toEqual(['Clip', 'Landscape Photo', 'Song']); // ext mp3/mp4, and example.com in a url
+    expect(kw('mp')).toEqual(['Clip', 'Song']); // ext mp3/mp4, not the inside of example.com
     expect(kw('ui -clip')).toEqual(['Mockup iPhone']);
   });
 
   it('a short accented term finds either case (SQLite lower() only folds ASCII)', () => {
-    expect(kw('é')).toEqual(['E\u0301le\u0300ve study', 'oil sketch 2']); // Élève (NFD name, étude tag) and Gérôme (note)
+    expect(kw('é')).toEqual(['E\u0301le\u0300ve study']); // Élève (NFD name, étude tag), not Gérôme (note)
     expect(kw('É')).toEqual(kw('é'));
+    // No word starts with ô: the search falls back to the inside of words (Gérôme).
     expect(kw('ô')).toEqual(['oil sketch 2']);
     expect(kw('Ô')).toEqual(['oil sketch 2']);
     expect(kw('é -ô')).toEqual(['E\u0301le\u0300ve study']);
@@ -266,6 +267,56 @@ describe('keyword filter', () => {
     expect(kw(`x'; DROP TABLE items; --`)).toEqual([]);
     expect(kw('NEAR(oil sketch)')).toEqual([]);
     expect(run(fx, all).names).toHaveLength(8);
+  });
+});
+
+describe('keyword search by word starts', () => {
+  let w: Fixture;
+  beforeAll(() => {
+    w = new Fixture();
+    for (const r of [
+      { name: 'Arm of Eve' },
+      { name: 'Little Girl in a Blue Armchair' },
+      { name: 'Jose De Charmoy' },
+      { name: 'Farmhouse in Provence' },
+      { name: '02 DraperyDrawingFromTheLibrary' },
+      { name: '8Sargent Ornament Drawing' },
+      { name: 'Study', annotation: 'arm raised' }, // a hit in the note
+    ])
+      w.add(r);
+  });
+  const names = (keywords: string) => run(w, all, { keywords });
+
+  it('a term starts a word: words run together and digits split too', () => {
+    expect(sorted(names('arm').names)).toEqual([
+      'Arm of Eve',
+      'Little Girl in a Blue Armchair',
+      'Study',
+    ]);
+    expect(sorted(names('drawing').names)).toEqual([
+      '02 DraperyDrawingFromTheLibrary',
+      '8Sargent Ornament Drawing',
+    ]);
+    expect(names('sargent').names).toEqual(['8Sargent Ornament Drawing']);
+    expect(names('ar').names).not.toContain('Jose De Charmoy'); // short terms too
+    expect(names('"armoy"').names).toEqual(['Jose De Charmoy']); // a quoted phrase matches anywhere
+  });
+
+  it('falls back to the inside of words, and says so, when no word starts with the term', () => {
+    const r = names('harm');
+    expect(r.names).toEqual(['Jose De Charmoy']);
+    expect(r.res.partialKeywords).toBe(true);
+    expect(names('arm').res.partialKeywords).toBeUndefined();
+  });
+
+  it('lists the best matches first unless a sort is asked for', () => {
+    const r = names('arm');
+    expect(r.res.bestMatch).toBe(true);
+    // The whole word in a name, then the start of a word in a name, then the note.
+    expect(r.names).toEqual(['Arm of Eve', 'Little Girl in a Blue Armchair', 'Study']);
+    const byName = run(w, all, { keywords: 'arm' }, { by: 'NAME', ascending: false });
+    expect(byName.res.bestMatch).toBeUndefined();
+    expect(byName.names[0]).toBe('Study');
   });
 });
 
