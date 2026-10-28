@@ -575,6 +575,27 @@ describe.skipIf(!sandboxAvailable)('MCP tools on the real core', () => {
     expect(refs.children.map((f) => f.name)).toEqual(['One', 'Two', 'Three']);
   });
 
+  it('refuses a folder delete that would reach items a password-locked folder hides', async () => {
+    const x = await start();
+    const { api } = x.host;
+    const vault = await api.createFolder('Vault', null);
+    const child = await api.createFolder('Child', vault.id);
+    await api.updateItems(x.sample, { addFolders: [child.id] });
+    // Lock the parent the way Eagle stores it; searches then hide the items in Child too.
+    const rootFile = join(x.sb.libPath, 'metadata.json');
+    const root = JSON.parse(readFileSync(rootFile, 'utf8'));
+    root.folders.find((f: any) => f.id === vault.id).password = '1234';
+    root.modificationTime = Date.now();
+    writeFileSync(rootFile, JSON.stringify(root));
+    await api.refresh({ full: true });
+
+    const del = await x.client.call('delete_folder', {
+      folder: 'Vault / Child',
+      delete_contents: true,
+    });
+    expect(del.text).toMatch(/password-locked folder/);
+  });
+
   it('import_url takes only http(s) addresses and downloads one into the library', async () => {
     const x = await start();
     expect((await x.client.call('import_url', { url: 'file:///etc/passwd' })).text).toMatch(

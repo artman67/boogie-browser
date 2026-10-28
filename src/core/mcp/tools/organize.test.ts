@@ -46,7 +46,7 @@ describe('a folder tree over the apply limit', () => {
       /Delete these subfolders first \(each with delete_contents true, as here\)/,
     );
     expect(msg).toMatch(
-      /still leaves over 500: then move its items that are in no other folder to the trash/,
+      /still leaves over 500: then take every item out of it with remove_from_folders .*including those already in the trash .*after moving the ones in no other folder to the trash/,
     );
   });
 });
