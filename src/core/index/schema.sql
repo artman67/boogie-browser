@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS meta (
   key   TEXT PRIMARY KEY,
   value TEXT NOT NULL
 ) WITHOUT ROWID;
--- keys: schema_version ('4'), library_path, root_modification_time, root_text (last root JSON),
+-- keys: schema_version ('5'), library_path, root_modification_time, root_text (last root JSON),
 --       last_full_scan (ms), mtime_json_text_hash, unreadable, images_dir_stamp (skip listing
 --       images/ when unchanged), verify_stamp (service/storage: when the stat pass last ran)
 
@@ -102,8 +102,9 @@ CREATE VIRTUAL TABLE IF NOT EXISTS items_fts USING fts5(
 );
 
 -- The same text as the FTS row, one field per line, lowercased (JS toLowerCase, so every script
--- folds, not just ASCII). Keyword terms under 3 characters, which the trigram index can't serve,
--- scan this narrow table with instr() instead of the item rows.
+-- folds, not just ASCII), with char(1) before every word (shared/match.ts markWords). Keyword
+-- terms look for their start of a word here: the trigram hits narrow it down from 3 characters;
+-- shorter terms scan this narrow table with instr().
 CREATE TABLE IF NOT EXISTS item_search (
   item_rowid INTEGER PRIMARY KEY REFERENCES items(rowid) ON DELETE CASCADE,
   text       TEXT NOT NULL

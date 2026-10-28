@@ -399,6 +399,10 @@ export interface QueryResult {
   elapsedMs: number;
   /** Only when the request asked for `elsewhere` and something outside the scope matched. */
   sections?: ResultSection[];
+  /** A keyword search with no sort asked for: best matches first (`sort` only breaks ties). */
+  bestMatch?: boolean;
+  /** No word started with a keyword, so the keywords matched inside words instead (Eagle's way). */
+  partialKeywords?: boolean;
 }
 
 // ───────────────────────── Mutations ─────────────────────────

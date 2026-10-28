@@ -203,6 +203,7 @@ describe(`synthetic ${N} item library`, () => {
       time('keyword "gerome" (note)', { kind: 'all' }, { keywords: 'gerome' }),
       time('keyword "oi" (2 chars, LIKE path)', { kind: 'all' }, { keywords: 'oi' }),
       time('keyword phrase', { kind: 'all' }, { keywords: '"student of oil"' }),
+      time('keyword "p" (most items, ranked)', { kind: 'all' }, { keywords: 'p' }),
     ];
     for (const r of rows) expect(r.ms, r.name).toBeLessThan(CEILING * 2);
   });

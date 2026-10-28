@@ -1,12 +1,16 @@
 // Pure: one Eagle item record -> the rows we keep in SQLite. No database access in here, so the
 // query agent can use it to build fixtures and tests can call it directly.
 import { converter } from 'culori';
+import { markWords } from '../../shared/match';
 import type { EagleItemRecord } from '../../shared/types';
 
 const toLab65 = converter('lab65');
 
 /** Lists in one FTS column are joined with this: a typed phrase never contains it, so it can't match across two entries. */
 export const FTS_SEP = '\n';
+
+/** Between the fields in item_search.text: not a word character, never typed, so the best-match ranking can split the fields apart again. */
+export const SEARCH_FIELD_SEP = '\u0002';
 
 export interface ItemRow {
   id: string;
@@ -66,24 +70,24 @@ export interface ProjectedRecord {
   folders: { folderId: string; ord: string | null }[];
   palette: PaletteRow[];
   fts: FtsRow;
-  /** item_search.text: the FTS fields one per line, lowercased (short keyword terms scan it). */
+  /** item_search.text: the FTS fields joined by SEARCH_FIELD_SEP, through markWords (keyword terms scan it). */
   search: string;
 }
 
 /** The FTS fields in item_search order (the SQL rebuild in libraryIndex.ts uses the same order). */
 export function searchText(f: FtsRow): string {
-  return [
-    f.name,
-    f.tags,
-    f.annotation,
-    f.url,
-    f.folder_names,
-    f.ext,
-    f.comments,
-    f.folder_descriptions,
-  ]
-    .join(FTS_SEP)
-    .toLowerCase();
+  return markWords(
+    [
+      f.name,
+      f.tags,
+      f.annotation,
+      f.url,
+      f.folder_names,
+      f.ext,
+      f.comments,
+      f.folder_descriptions,
+    ].join(SEARCH_FIELD_SEP),
+  );
 }
 
 export interface FolderText {

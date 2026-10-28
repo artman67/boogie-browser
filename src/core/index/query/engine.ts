@@ -16,7 +16,17 @@ import type { LibraryIndex, QueryEngine, UrlBuilder } from '../../contracts';
 import { canRenderLocally } from '../../media/formats';
 import { LOCKED_ROWIDS } from '../folders';
 import { changesOf, PaletteCache, SmartMemberCache, type IndexChanges } from './caches';
+import { WORD_MARK } from '../../../shared/match';
+import { SEARCH_FIELD_SEP } from '../project';
 import { compileFilter, type CompiledFilter } from './filters';
+import {
+  keywordsToSql,
+  parseKeywords,
+  positiveTerms,
+  wordForm,
+  type KeywordMode,
+  type KeywordTerm,
+} from './keywords';
 import { DEFAULT_SORT, folderSort, isOrderBy, naturalKey, seededHash, sqlOrderExpr } from './sorts';
 import {
   compileSmartFolder,
@@ -65,6 +75,20 @@ const SPILLS = new Set<Scope['kind']>([
   'uncategorized',
   'untagged',
 ]);
+
+/** Best match: what a keyword hits in each search field is worth (SEARCH_FIELDS_SQL's order). */
+const FIELD_WEIGHTS = [
+  8, // name
+  5, // tags
+  2, // note
+  1, // url
+  4, // folder names
+  1, // ext
+  2, // comments
+  1, // folder descriptions
+];
+
+const ALNUM = /[\p{L}\p{N}]/u;
 
 /** SortSpec plus an optional seed (a RANDOM sort outside the Random scope reshuffles when it changes). */
 type SeededSort = SortSpec & { seed?: number };
@@ -287,34 +311,33 @@ export class SqlQueryEngine implements QueryEngine {
     const t0 = performance.now();
     const now = Date.now();
     const plan = this.scopePlan(req.scope, now);
-    const filter = compileFilter(req.filter, now);
-    const where = joinFrags([plan.where, ...this.unlocked(req.scope), ...filter.where], 'AND');
 
     const asked = req.sort && isOrderBy(req.sort.by) ? (req.sort as SeededSort) : null;
     const sort: SeededSort = asked
       ? { by: asked.by, ascending: asked.ascending !== false, seed: asked.seed }
       : this.defaultSort(req.scope);
 
-    let rows = this.fetchOrdered(where, sort, req.scope, plan.manualFolderId);
+    // A keyword search with no sort asked for lists the best matches first; the scope's own sort
+    // only breaks ties.
+    const keywords = parseKeywords(req.filter.keywords ?? '');
+    const terms = positiveTerms(keywords);
+    const bestMatch = !asked && terms.length > 0;
 
-    if (plan.smart) {
-      const members = this.smartMembers(plan.smart, now);
-      rows = rows.filter((r) => members.has(r[0]));
-    }
-    rows = this.colorFiltered(rows, filter.color);
-
-    const own = rows.length;
-    let sections: ResultSection[] | undefined;
-    if (req.elsewhere && SPILLS.has(req.scope.kind) && req.filter.keywords?.trim()) {
-      const more = this.elsewhere(rows, filter, sort, now);
-      if (more) {
-        sections = [
-          { start: 0, kind: 'here' },
-          ...more.sections.map((x) => ({ ...x, start: x.start + rows.length })),
-        ];
-        rows = rows.concat(more.rows);
+    let found = this.collect(req, plan, sort, now, 'words', bestMatch ? terms : null);
+    // Nothing starts a word with what was typed: show what has it inside a word, and say so.
+    let partialKeywords = false;
+    if (
+      keywords &&
+      !found.rows.length &&
+      keywordsToSql(keywords, 'words').sql !== keywordsToSql(keywords, 'partial').sql
+    ) {
+      const again = this.collect(req, plan, sort, now, 'partial', bestMatch ? terms : null);
+      if (again.rows.length) {
+        found = again;
+        partialKeywords = true;
       }
     }
+    const { rows, own, sections } = found;
 
     const n = rows.length;
     const ids = new Array<string>(n);
@@ -332,7 +355,97 @@ export class SqlQueryEngine implements QueryEngine {
       sort: applied,
       elapsedMs: Math.round((performance.now() - t0) * 10) / 10,
       ...(sections && { sections }),
+      ...(bestMatch && { bestMatch }),
+      ...(partialKeywords && { partialKeywords }),
     };
+  }
+
+  /** The scope's matches and, for a search that spills, the rest of the library's after them. */
+  private collect(
+    req: QueryRequest,
+    plan: ScopePlan,
+    sort: SeededSort,
+    now: number,
+    mode: KeywordMode,
+    rankBy: KeywordTerm[] | null,
+  ): { rows: Row[]; own: number; sections?: ResultSection[] } {
+    const filter = compileFilter(req.filter, now, mode);
+    const where = joinFrags([plan.where, ...this.unlocked(req.scope), ...filter.where], 'AND');
+    const ranked = (rows: Row[]) => (rankBy ? this.bestFirst(rows, rankBy, mode) : rows);
+
+    let rows = this.fetchOrdered(where, sort, req.scope, plan.manualFolderId);
+    if (plan.smart) {
+      const members = this.smartMembers(plan.smart, now);
+      rows = rows.filter((r) => members.has(r[0]));
+    }
+    rows = ranked(this.colorFiltered(rows, filter.color));
+
+    const own = rows.length;
+    if (req.elsewhere && SPILLS.has(req.scope.kind) && req.filter.keywords?.trim()) {
+      const more = this.elsewhere(rows, filter, sort, now, ranked);
+      if (more)
+        return {
+          rows: rows.concat(more.rows),
+          own,
+          sections: [
+            { start: 0, kind: 'here' },
+            ...more.sections.map((x) => ({ ...x, start: x.start + own })),
+          ],
+        };
+    }
+    return { rows, own };
+  }
+
+  /**
+   * `rows` with the best keyword matches first (a stable sort, so equal ones keep their order).
+   * Each term scores the weight of the best field it is found in, plus 1 when it is a whole word
+   * there: a hit in the name beats one in the tags, then folder names, notes and comments, then the
+   * rest.
+   */
+  private bestFirst(rows: Row[], terms: KeywordTerm[], mode: KeywordMode): Row[] {
+    if (rows.length < 2) return rows;
+    // Each term in both Unicode forms, as the SQL tries them.
+    const wanted = terms.map((t) =>
+      [...new Set([t.text.normalize('NFC'), t.text.normalize('NFD')])].map((f) => ({
+        plain: f.toLowerCase(),
+        word: wordForm(f, t.exact, mode),
+      })),
+    );
+    const texts = this.prepare(
+      'SELECT item_rowid, text FROM item_search WHERE item_rowid IN (SELECT value FROM json_each(?))',
+    )
+      .raw(true)
+      .all(JSON.stringify(rows.map((r) => r[0]))) as [number, string][];
+    const score = new Map<number, number>();
+    for (const [rowid, text] of texts) {
+      const fields = text.split(SEARCH_FIELD_SEP);
+      let total = 0;
+      for (const forms of wanted) {
+        let best = 0;
+        for (let k = 0; k < fields.length && k < FIELD_WEIGHTS.length; k++) {
+          const f = fields[k];
+          if (!f || FIELD_WEIGHTS[k] + 1 <= best) continue;
+          for (const { plain, word } of forms) {
+            if (!word) {
+              if (f.replaceAll(WORD_MARK, '').includes(plain))
+                best = Math.max(best, FIELD_WEIGHTS[k]);
+              continue;
+            }
+            for (let at = f.indexOf(word); at >= 0; at = f.indexOf(word, at + 1)) {
+              best = Math.max(best, FIELD_WEIGHTS[k]);
+              const next = f[at + word.length];
+              if (next === undefined || next === WORD_MARK || !ALNUM.test(next)) {
+                best = FIELD_WEIGHTS[k] + 1; // a whole word
+                break;
+              }
+            }
+          }
+        }
+        total += best;
+      }
+      score.set(rowid, total);
+    }
+    return [...rows].sort((a, b) => (score.get(b[0]) ?? 0) - (score.get(a[0]) ?? 0));
   }
 
   private colorFiltered(rows: Row[], color: CompiledFilter['color']): Row[] {
@@ -354,6 +467,7 @@ export class SqlQueryEngine implements QueryEngine {
     filter: CompiledFilter,
     sort: SeededSort,
     now: number,
+    ranked: (rows: Row[]) => Row[],
   ): { rows: Row[]; sections: ResultSection[] } | null {
     const all: Scope = { kind: 'all' };
     const where = joinFrags(
@@ -363,10 +477,11 @@ export class SqlQueryEngine implements QueryEngine {
     // A folder's manual order means nothing outside it.
     const order = sort.by === 'MANUAL' ? { ...DEFAULT_SORT } : sort;
     const inHere = new Set(here.map((r) => r[0]));
-    const rows = this.colorFiltered(
-      this.fetchOrdered(where, order, all, null),
-      filter.color,
-    ).filter((r) => !inHere.has(r[0]));
+    const rows = ranked(
+      this.colorFiltered(this.fetchOrdered(where, order, all, null), filter.color).filter(
+        (r) => !inHere.has(r[0]),
+      ),
+    );
     if (!rows.length) return null;
 
     const pairs = this.prepare(

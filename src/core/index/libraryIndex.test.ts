@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import type { EagleFolderRecord, EagleItemRecord, EagleRootRecord } from '../../shared/types';
 import { indexes } from './index';
 import { openIndex, SCHEMA_VERSION } from './open';
+import { SEARCH_FIELD_SEP } from './project';
 import type { SqliteLibraryIndex } from './libraryIndex';
 import {
   bruteCounts,
@@ -659,11 +660,34 @@ describe('opening the database', () => {
     expect(names).toContain('items_all');
     expect(names).not.toContain('items_imported');
     expect(up.db.prepare('SELECT text FROM item_search').pluck().all()).toEqual([
-      ['élan', 'oil', '', '', '', 'jpg', '', ''].join('\n'),
+      ['\u0001élan', '\u0001oil', '', '', '', '\u0001jpg', '', ''].join(SEARCH_FIELD_SEP),
     ]);
     expect(up.db.prepare("SELECT value FROM meta WHERE key = 'schema_version'").pluck().get()).toBe(
       SCHEMA_VERSION,
     );
+  });
+
+  it('upgrades a version 4 index in place: item_search marks word starts', async () => {
+    const dir = scratchDir('migrate4');
+    const lib = new MemoryLibrary();
+    lib.records.set('a', makeItem('a', { name: 'DraperyStudy', tags: ['Oil'] }));
+    const ref = testRef('v4');
+    const ix = openIndex(ref, { dir, fs: lib.fs() });
+    await ix.sync(lib);
+    ix.close();
+    const old = new Database(join(dir, 'v4.sqlite'));
+    old.exec(
+      `UPDATE item_search SET text = 'drapérystudy'; UPDATE meta SET value = '4' WHERE key = 'schema_version';`,
+    );
+    old.close();
+
+    const up = track(openIndex(ref, { dir, fs: lib.fs() }));
+    expect(up.counts().all).toBe(1); // kept, not rebuilt
+    expect(up.db.prepare('SELECT text FROM item_search').pluck().all()).toEqual([
+      ['\u0001drapery\u0001study', '\u0001oil', '', '', '', '\u0001jpg', '', ''].join(
+        SEARCH_FIELD_SEP,
+      ),
+    ]);
   });
 
   it('defaults to <cache>/index under BOOGIE_HOME', () => {

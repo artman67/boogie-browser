@@ -20,13 +20,20 @@ export const SCHEMA_VERSION = /schema_version\s*\('(\d+)'\)/.exec(schemaSql)?.[1
 
 /** In-place upgrades from older schema versions (run after schema.sql made the new tables and indexes). */
 const MIGRATIONS: Record<string, (db: Database.Database) => void> = {
-  // v4: covering index for All and counts, item_search for short keywords.
+  // v4: covering index for All and counts, item_search for short keywords. Its item_search is
+  // already v5's (SEARCH_SQL is the current text).
   '3': (db) => {
     db.exec('DROP INDEX IF EXISTS items_imported');
     db.exec(
       `INSERT OR REPLACE INTO item_search (item_rowid, text) SELECT i.rowid, ${SEARCH_SQL} FROM items i`,
     );
     db.exec('ANALYZE');
+  },
+  // v5: item_search marks word starts (keyword terms match from the start of a word).
+  '4': (db) => {
+    db.exec(
+      `INSERT OR REPLACE INTO item_search (item_rowid, text) SELECT i.rowid, ${SEARCH_SQL} FROM items i`,
+    );
   },
 };
 

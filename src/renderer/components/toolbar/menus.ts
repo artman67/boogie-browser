@@ -58,27 +58,39 @@ async function makeFolderDefault(folderId: string, sort: SortSpec): Promise<void
   if (r) toastWithUndo('Saved as this folder’s default sort', r.groupId);
 }
 
+/** A keyword search with no sort chosen lists the best matches first. */
+export const bestMatch = (): boolean => !view.sort && !!view.result?.bestMatch;
+
 export function sortMenu(): MenuItem[] {
   const cur = currentSort();
+  const best = bestMatch();
   const scope = view.scope;
   const inFolder = scope.kind === 'folder';
-  const fixedDirection = cur.by === 'RANDOM' || cur.by === 'MANUAL';
-  const items: MenuItem[] = SORTS.filter((o) => !o.folderOnly || inFolder).map((o) => ({
-    label: o.label,
-    checked: cur.by === o.by,
-    run: () => view.setSort({ by: o.by, ascending: cur.by === o.by ? cur.ascending : o.ascending }),
-  }));
+  const fixedDirection = best || cur.by === 'RANDOM' || cur.by === 'MANUAL';
+  const items: MenuItem[] = [];
+  if (view.filter.keywords?.trim())
+    items.push(
+      { label: 'Best match', checked: best, run: () => view.setSort(null) },
+      { separator: true },
+    );
+  for (const o of SORTS.filter((o) => !o.folderOnly || inFolder))
+    items.push({
+      label: o.label,
+      checked: !best && cur.by === o.by,
+      run: () =>
+        view.setSort({ by: o.by, ascending: cur.by === o.by ? cur.ascending : o.ascending }),
+    });
   items.push(
     { separator: true },
     {
       label: 'Ascending',
-      checked: cur.ascending,
+      checked: !best && cur.ascending,
       disabled: fixedDirection,
       run: () => view.setSort({ by: cur.by, ascending: true }),
     },
     {
       label: 'Descending',
-      checked: !cur.ascending,
+      checked: !best && !cur.ascending,
       disabled: fixedDirection,
       run: () => view.setSort({ by: cur.by, ascending: false }),
     },
@@ -90,7 +102,7 @@ export function sortMenu(): MenuItem[] {
       { separator: true },
       {
         label: 'Make this the folder’s default',
-        disabled: !!lock,
+        disabled: !!lock || best,
         title: lock,
         run: () => void makeFolderDefault(folderId, cur),
       },
