@@ -13,6 +13,7 @@ import type {
   EagleRootRecord,
   Scope,
 } from '../../../shared/types';
+import { markWords } from '../../../shared/match';
 import type { EagleLibrary } from '../../contracts';
 import { openIndex } from '../open';
 import type { SqliteLibraryIndex } from '../libraryIndex';
@@ -208,8 +209,9 @@ describe.skipIf(!haveTemplate)('engine on the real index, Art Archive template',
     );
   });
 
-  it('keyword search matches what a plain substring scan over each field finds', () => {
-    // fields the grammar searches, each matched on its own (like FTS columns), both Unicode forms tried
+  it('keyword search matches what a scan for word starts over each field finds', () => {
+    // fields the grammar searches, each matched on its own (like FTS columns), both Unicode forms
+    // tried; a term has to start a word (markWords puts a mark before every word)
     const fields = (r: EagleItemRecord) =>
       [
         r.name,
@@ -220,10 +222,8 @@ describe.skipIf(!haveTemplate)('engine on the real index, Art Archive template',
         ...known(r).map((f) => folderName.get(f)!),
       ].filter((s) => typeof s === 'string');
     const hits = (term: string) => (r: EagleItemRecord) => {
-      const forms = [...new Set([term.normalize('NFC'), term.normalize('NFD')])].map((t) =>
-        t.toLowerCase(),
-      );
-      return fields(r).some((f) => forms.some((t) => f.toLowerCase().includes(t)));
+      const forms = [...new Set([term.normalize('NFC'), term.normalize('NFD')])].map(markWords);
+      return fields(r).some((f) => forms.some((t) => markWords(f).includes(t)));
     };
     const words = new Map<string, number>();
     for (const r of live())
