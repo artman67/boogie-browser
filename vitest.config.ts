@@ -8,5 +8,6 @@ export default defineConfig({
     environment: 'node',
     testTimeout: 30000,
     pool: 'forks',
+    env: { BOOGIE_PICTURE_SEARCH: 'off' },
   },
 });

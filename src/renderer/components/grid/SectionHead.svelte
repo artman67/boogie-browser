@@ -1,5 +1,5 @@
 <script lang="ts" module>
-  /** Heading height, plus DIVIDER_H on the first section from elsewhere. */
+  /** Heading height, plus DIVIDER_H on the first section from elsewhere (picture search: only DIVIDER_H). */
   export const HEAD_H = 34;
   export const DIVIDER_H = 32;
 </script>
@@ -7,13 +7,15 @@
 <script lang="ts">
   // A heading over one run of a search that also looked outside the current scope: the scope's own
   // matches, then (under an "Elsewhere" divider) each folder that has more. A folder's heading
-  // opens that folder with the same search.
+  // opens that folder with the same search. Last, under its own divider, the pictures that look
+  // like the words.
   import ChevronRight from '@lucide/svelte/icons/chevron-right';
   import Folder from '@lucide/svelte/icons/folder';
   import { library } from '../../lib/stores/library.svelte';
   import { view } from '../../lib/stores/view.svelte';
   import { FOLDER_COLORS, type ResultSection } from '../../../shared/types';
   import { whereYouAre } from '../toolbar/where';
+  import { quoted } from '../../lib/format';
 
   let {
     section,
@@ -52,30 +54,41 @@
 </script>
 
 <div class="head" style="top: {y}px">
-  {#if divider !== null}
+  {#if section.kind === 'looks'}
     <div class="div">
-      <span>Elsewhere in the library</span><span class="n">{divider.toLocaleString()}</span>
+      <span>Looks like {quoted(view.filter.keywords?.trim() ?? '')}</span><span class="n"
+        >{count.toLocaleString()}</span
+      >
+      {#if view.result?.looksPending}<span class="n"
+          >· {view.result.looksPending.toLocaleString()} pictures not read yet</span
+        >{/if}
+    </div>
+  {:else}
+    {#if divider !== null}
+      <div class="div">
+        <span>Elsewhere in the library</span><span class="n">{divider.toLocaleString()}</span>
+      </div>
+    {/if}
+    <div class="row">
+      {#if section.kind === 'here'}
+        <span class="nm">{count ? `In ${where.name}` : `Nothing in ${where.name}`}</span>
+        {#if count}<span class="n">{count.toLocaleString()}</span>{/if}
+      {:else if section.kind === 'none'}
+        <span class="nm">Not in a folder</span><span class="n">{count.toLocaleString()}</span>
+      {:else}
+        <button class="go" onclick={open} title="Open this folder with the same search">
+          <Folder
+            size={14}
+            color={folder?.iconColor ? FOLDER_COLORS[folder.iconColor] : 'currentColor'}
+          />
+          {#each ancestors as a (a)}<span class="up">{a}</span><span class="sep">›</span>{/each}
+          <span class="nm">{folder?.name ?? 'Folder'}</span>
+          <span class="n">{count.toLocaleString()}</span>
+          <ChevronRight size={14} class="chev" />
+        </button>
+      {/if}
     </div>
   {/if}
-  <div class="row">
-    {#if section.kind === 'here'}
-      <span class="nm">{count ? `In ${where.name}` : `Nothing in ${where.name}`}</span>
-      {#if count}<span class="n">{count.toLocaleString()}</span>{/if}
-    {:else if section.kind === 'none'}
-      <span class="nm">Not in a folder</span><span class="n">{count.toLocaleString()}</span>
-    {:else}
-      <button class="go" onclick={open} title="Open this folder with the same search">
-        <Folder
-          size={14}
-          color={folder?.iconColor ? FOLDER_COLORS[folder.iconColor] : 'currentColor'}
-        />
-        {#each ancestors as a (a)}<span class="up">{a}</span><span class="sep">›</span>{/each}
-        <span class="nm">{folder?.name ?? 'Folder'}</span>
-        <span class="n">{count.toLocaleString()}</span>
-        <ChevronRight size={14} class="chev" />
-      </button>
-    {/if}
-  </div>
 </div>
 
 <style>

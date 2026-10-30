@@ -149,6 +149,7 @@ export async function launch({
     ...process.env,
     BOOGIE_HOME: home,
     BOOGIE_WRITABLE_ROOTS: WORK,
+    BOOGIE_PICTURE_SEARCH: 'off', // no 690 MB model download per test home
     ELECTRON_OZONE_PLATFORM_HINT: 'x11',
     XDG_SESSION_TYPE: 'x11',
     ...env,

@@ -33,6 +33,7 @@ import { AgentPauses } from './agents';
 import { closeSession, decideReadOnly, openSession, startSession, startSync } from './session';
 import { buildLibraryState } from './state';
 import type { Env, Session } from './types';
+import { Looks } from '../looks';
 import { Mutex, throttle } from './util';
 
 const TICK_MS = 10_000;
@@ -42,6 +43,8 @@ export const AGENT_IDLE_MS = 5 * 60_000;
 export class CoreService {
   readonly bus = new Bus();
   readonly jobs = new JobManager((p) => this.bus.emit('job', p));
+  /** Picture search: reads the window's library in the background, ranks any library's pictures. */
+  readonly looks: Looks;
   /** The library the window shows. */
   session: Session | null = null;
   closed = false;
@@ -70,6 +73,7 @@ export class CoreService {
     readonly settings: SettingsStore,
     readonly known: KnownStore,
   ) {
+    this.looks = new Looks(paths.cache, this.jobs, () => this.media());
     this.env = {
       deps,
       paths,
@@ -326,7 +330,8 @@ export class CoreService {
 
   /** Close background libraries agents have left alone (never while a job runs: it may need one). */
   private async closeIdle(): Promise<void> {
-    if (this.jobs.list().some((j) => j.state === 'running')) return;
+    // (Picture search only reads the window's library.)
+    if (this.jobs.list().some((j) => j.state === 'running' && j.kind !== 'looks')) return;
     for (const [id, s] of [...this.background]) {
       if (this.agentBusy(id)) continue;
       await this.busy.run(async () => {
@@ -467,12 +472,22 @@ export class CoreService {
     try {
       await this.recheckReadOnly();
       await this.closeIdle();
+      this.keepUpLooks();
       await this.emitStatus();
     } catch (e) {
       console.error('[boogie] status check failed', e);
     } finally {
       this.ticking = false;
     }
+  }
+
+  /** Picture search reads what is new in the window's library, once its index is in step. */
+  private keepUpLooks(): void {
+    const s = this.session;
+    if (!s || s.closed || s.indexing || s.syncPromise) return;
+    // Test runs turn it off: each test's own app folder would download the model again.
+    if (process.env.BOOGIE_PICTURE_SEARCH === 'off') return;
+    this.looks.keepUp({ libraryId: s.ref.id, index: s.index, lib: s.lib, closed: s.abort.signal });
   }
 
   setPorts(ports: Partial<AppStatus['ports']>): void {
@@ -528,6 +543,7 @@ export class CoreService {
       // Whatever happened above, quitting still stops jobs and the media workers.
       this.jobs.abortAll();
       await this.jobs.whenIdle();
+      await this.looks.close().catch(() => undefined);
       await this.mediaService?.close().catch(() => undefined);
       this.bus.clear();
     }

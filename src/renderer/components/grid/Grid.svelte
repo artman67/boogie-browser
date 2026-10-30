@@ -62,8 +62,20 @@
   const isList = $derived(kind === 'list');
   const listLevel = $derived(width >= 700 ? 0 : width >= 640 ? 1 : 2);
   const ids = $derived(view.result?.ids ?? EMPTY_IDS);
-  /** A search that also found matches outside the scope: the scope's own, then each folder's. */
+  /**
+   * A search that also found matches outside the scope: the scope's own, then each folder's; then
+   * the pictures that look like the words.
+   */
   const sections = $derived(view.result?.sections);
+  /** The first section from elsewhere: it also carries the "Elsewhere in the library" divider. */
+  const firstElsewhere = $derived(
+    sections?.findIndex((s) => s.kind === 'folder' || s.kind === 'none') ?? -1,
+  );
+  const elsewhereCount = $derived.by(() => {
+    if (!sections || firstElsewhere < 0) return 0;
+    const end = sections.find((s) => s.kind === 'looks')?.start ?? ids.length;
+    return end - sections[firstElsewhere].start;
+  });
   const folderChildren = $derived(
     view.scope.kind === 'folder' ? (library.folder(view.scope.id)?.node.children ?? []) : [],
   );
@@ -88,10 +100,10 @@
       padTop: isList ? 0 : 14,
       padBottom: isList ? 16 : 64, // room for the selection bar
       listRowH: 44,
-      // The first section from elsewhere also carries the "Elsewhere in the library" divider.
+      // Picture search's section is only a divider.
       sections: sections?.map((s, k) => ({
         start: s.start,
-        headerH: HEAD_H + (k === 1 ? DIVIDER_H : 0),
+        headerH: s.kind === 'looks' ? DIVIDER_H : HEAD_H + (k === firstElsewhere ? DIVIDER_H : 0),
       })),
     }),
   );
@@ -498,7 +510,7 @@
           <SectionHead
             section={h.s}
             count={h.count}
-            divider={h.k === 1 ? ids.length - h.s.start : null}
+            divider={h.k === firstElsewhere ? elsewhereCount : null}
             y={h.y - shift}
           />
         {/each}

@@ -89,16 +89,21 @@ export class GridDrop {
     }
   }
 
-  /** Where the scope's own items end: a search can list matches from elsewhere after them. */
+  /**
+   * Where the scope's own items end: a search can list matches from elsewhere after them (and
+   * then pictures that look like the words, which are the scope's own again).
+   */
   private hereEnd(): number {
-    return view.result?.sections?.[1]?.start ?? Infinity;
+    const s = view.result?.sections?.find((x) => x.kind === 'folder' || x.kind === 'none');
+    return s?.start ?? Infinity;
   }
 
   private allHere(ids: string[] | null): boolean {
     if (!ids || !view.result?.sections) return true;
     const all = this.g.ids();
     const moving = new Set(ids);
-    for (let k = this.hereEnd(); k < all.length; k++) if (moving.has(all[k])) return false;
+    const end = view.result.sections.find((x) => x.kind === 'looks')?.start ?? all.length;
+    for (let k = this.hereEnd(); k < end; k++) if (moving.has(all[k])) return false;
     return true;
   }
 

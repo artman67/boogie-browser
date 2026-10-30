@@ -231,6 +231,7 @@ class ViewStore {
         filter: $state.snapshot(this.filter) as FilterSpec,
         sort: this.sort ? ($state.snapshot(this.sort) as SortSpec) : null,
         elsewhere: true,
+        looksLike: this.filter.keywords,
       });
       if (seq !== this.seq) return;
       this.result = res;

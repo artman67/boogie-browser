@@ -378,14 +378,22 @@ export interface QueryRequest {
    * matches from the rest of the library, after the scope's own, grouped by folder (see sections).
    */
   elsewhere?: boolean;
+  /**
+   * Also list the pictures that look like these words (picture search), best first, after
+   * everything else. Without keywords, those pictures are the whole result.
+   */
+  looksLike?: string;
 }
 
 /** A run of QueryResult.ids under one heading. */
 export interface ResultSection {
   /** Index in ids of the first item; the section runs to the next section's start. */
   start: number;
-  /** 'here': the scope's own matches. 'folder': matches elsewhere, filed under folderId. 'none': elsewhere, in no folder. */
-  kind: 'here' | 'folder' | 'none';
+  /**
+   * 'here': the scope's own matches. 'folder': matches elsewhere, filed under folderId. 'none':
+   * elsewhere, in no folder. 'looks': pictures in the scope that look like the words (looksLike).
+   */
+  kind: 'here' | 'folder' | 'none' | 'looks';
   folderId?: string;
 }
 
@@ -403,6 +411,8 @@ export interface QueryResult {
   bestMatch?: boolean;
   /** No word started with a keyword, so the keywords matched inside words instead (Eagle's way). */
   partialKeywords?: boolean;
+  /** With looksLike: pictures in the scope that picture search hasn't read yet. */
+  looksPending?: number;
 }
 
 // ───────────────────────── Mutations ─────────────────────────
@@ -477,7 +487,7 @@ export interface UndoResult {
 
 export interface JobProgress {
   jobId: string;
-  kind: 'index' | 'import' | 'hash' | 'dupes' | 'thumbnails' | 'export' | 'merge';
+  kind: 'index' | 'import' | 'hash' | 'dupes' | 'thumbnails' | 'export' | 'merge' | 'looks';
   label: string;
   done: number;
   total: number;

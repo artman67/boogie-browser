@@ -101,8 +101,9 @@ describe.skipIf(!sandboxAvailable)('MCP tools on the real core', () => {
       expect(byName.get(n).inputSchema.properties.plan_id, n).toBeDefined();
     // Every agent session pays for this list: 48 KB before the round-2 trim, 20.9 KB for 34 tools,
     // 27.5 KB for 42 (round 4: smart folders, tag groups, starred tags, saved filters, copy),
-    // 28.7 KB once every tool took a `library` argument, 29.2 KB with plan_changes.
-    expect(Buffer.byteLength(JSON.stringify(json.result))).toBeLessThan(29_500);
+    // 28.7 KB once every tool took a `library` argument, 29.2 KB with plan_changes, 29.6 KB with
+    // search_items' looks_like (picture search).
+    expect(Buffer.byteLength(JSON.stringify(json.result))).toBeLessThan(29_750);
   });
 
   it('search_items finds real items by folder (subfolders included), tags, rating and type', async () => {

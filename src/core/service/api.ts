@@ -10,6 +10,7 @@ import { currentCounts } from './group';
 import * as imports from './importOps';
 import type { CoreService } from './host';
 import * as items from './itemOps';
+import { queryWithLooks } from './looksQuery';
 import { keepTheirs } from './partner';
 import { applyRootConflict, planRootConflict } from './rootConflict';
 import * as filters from './savedFilters';
@@ -52,7 +53,7 @@ export function makeApi(svc: CoreService, actor: Actor, libraryId?: string): Cor
     closeLibrary: () => svc.closeLibrary(),
 
     // ── Query ──
-    query: async (req) => S().query.query(req),
+    query: async (req) => queryWithLooks(S(), svc.looks, req),
     getBriefs: async (ids) => S().query.briefs(ids),
     getItem: async (id) => S().query.item(id),
     getItems: async (ids) => S().query.items(ids),

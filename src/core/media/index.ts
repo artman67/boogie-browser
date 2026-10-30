@@ -9,6 +9,7 @@ import { Runner } from './exec';
 import { isBrowserViewable } from './formats';
 import { md5File, dhashOf } from './hash';
 import { paletteOf } from './palette';
+import { decodeRgb } from './pixels';
 import { previewOf } from './preview';
 import { probeFile } from './probe';
 import { eagleThumbnail, videoFrameWebp } from './thumbnail';
@@ -45,6 +46,7 @@ export function createMediaService(opts: MediaServiceOptions): BoogieMediaServic
     preview: (src, cacheKey, maxEdge) => previewOf(ctx, resolve(src), cacheKey, maxEdge),
     dhash: (imagePath) => dhashOf(ctx, resolve(imagePath)),
     md5: (path, signal) => md5File(resolve(path), signal),
+    rgb: (imagePath, w, h) => decodeRgb(ctx, resolve(imagePath), w, h),
     isBrowserViewable,
     videoFrame: (src, atSec) => videoFrameWebp(ctx, resolve(src), atSec, { quality: 90 }),
     close: () => ctx.runner.close(),

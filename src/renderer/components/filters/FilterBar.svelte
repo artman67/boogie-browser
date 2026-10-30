@@ -40,6 +40,13 @@
   // You jumped from a search to where an item lives: the bar offers the way back to the results.
   const backTo = $derived(view.filter.keywords ? undefined : view.back.at(-1)?.filter.keywords);
 
+  // A search's matches outside the scope, then the pictures that look like the words (sections).
+  const looksStart = $derived(
+    view.result?.sections?.find((s) => s.kind === 'looks')?.start ?? view.result?.ids.length ?? 0,
+  );
+  const elsewhere = $derived(view.result?.sections ? looksStart - view.result.total : 0);
+  const lookalikes = $derived((view.result?.ids.length ?? 0) - looksStart);
+
   // The scope's size without any filter, from the counts the library already keeps.
   const scopeTotal = $derived.by<number | null>(() => {
     const c = library.counts;
@@ -251,9 +258,9 @@
       <span class="res">
         {#if scopeTotal !== null}<b>{view.result.total.toLocaleString()}</b> of {scopeTotal.toLocaleString()}{:else}<b
             >{view.result.total.toLocaleString()}</b
-          > results{/if}{#if view.result.sections}, {(
-            view.result.ids.length - view.result.total
-          ).toLocaleString()} elsewhere{/if}
+          > results{/if}{#if elsewhere}, {elsewhere.toLocaleString()} elsewhere{/if}{#if lookalikes},
+          {lookalikes.toLocaleString()}
+          look alike{/if}
       </span>
     {/if}
     <span class="grow"></span>

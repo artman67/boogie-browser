@@ -10,9 +10,14 @@ files:
   - package.json
   # better-sqlite3 ships a prebuilt binary per platform; this build only needs linux-x64.
   - '!node_modules/better-sqlite3/prebuilds/{darwin-*,win32-*,linux-arm64*,linuxmusl-*}'
-# Native modules can't load from inside app.asar.
+  # onnxruntime (picture search) ships every platform and GPU add-ons; the CPU on linux-x64 is enough.
+  - '!node_modules/onnxruntime-node/bin/napi-v6/{darwin,win32}/**'
+  - '!node_modules/onnxruntime-node/bin/napi-v6/linux/arm64/**'
+  - '!node_modules/onnxruntime-node/bin/napi-v6/linux/x64/libonnxruntime_providers_{cuda,tensorrt}.so'
+# Native modules (and the libraries they load) can't load from inside app.asar.
 asarUnpack:
   - '**/*.node'
+  - 'node_modules/onnxruntime-node/bin/**'
 # The window icon and the drag icon fallback are read from disk (src/app/main.ts: iconPath).
 # resources/icon.png is made from resources/icon.svg with: vips copy resources/icon.svg resources/icon.png
 extraResources:

@@ -133,10 +133,14 @@
     if (!q) return void (images = null);
     const t = setTimeout(async () => {
       try {
-        const res = await api.query({ scope, filter, sort: null });
+        const res = await api.query({ scope, filter, sort: null, looksLike: q });
         const briefs = res.ids.length ? await api.getBriefs(res.ids.slice(0, 9)) : [];
         if (mine !== seq) return;
-        images = { total: res.total, thumbs: briefs.map((b) => ({ id: b.id, url: b.thumbUrl })) };
+        // Pictures that look like the words count too.
+        images = {
+          total: res.ids.length,
+          thumbs: briefs.map((b) => ({ id: b.id, url: b.thumbUrl })),
+        };
       } catch {
         if (mine === seq) images = null;
       }
