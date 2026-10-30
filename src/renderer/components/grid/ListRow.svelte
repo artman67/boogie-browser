@@ -14,8 +14,10 @@
     h: number;
     x: number;
     isNew: boolean;
+    /** Picture search: this row stands for more pictures from its folder (clicking shows them). */
+    stack?: { count: number; folder: string } | null;
   }
-  let { id, x, y, w, h, isNew }: Props = $props();
+  let { id, x, y, w, h, isNew, stack = null }: Props = $props();
 
   // The cache keeps the old records while an edited item is fetched again, so nothing blinks.
   const b = $derived(items.brief(id));
@@ -64,7 +66,11 @@
       {/if}
       {#if isNew}<span class="new"></span>{/if}
     </div>
-    <div class="name" title={b.name}>{b.name}</div>
+    {#if stack}
+      <div class="name more">{stack.count.toLocaleString()} more from {stack.folder}</div>
+    {:else}
+      <div class="name" title={b.name}>{b.name}</div>
+    {/if}
     <div class="ext">{b.ext}</div>
     <div class="num c-dim">{b.width && b.height ? `${b.width} × ${b.height}` : ''}</div>
     <div class="num">{fileSize(b.size)}</div>
@@ -139,6 +145,10 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+  .more {
+    color: var(--bl);
+    font-weight: 600;
   }
   .ext {
     color: var(--mu);

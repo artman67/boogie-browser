@@ -2,6 +2,7 @@ import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 import { appPaths } from '../paths';
+import { byFolder } from '../service/looksQuery';
 import { lookalikes } from './index';
 import { DIM, LooksModel, SIDE, modelDir, modelReady } from './model';
 import { LooksStore } from './store';
@@ -66,6 +67,27 @@ describe('lookalikes', () => {
     const { ids, pending } = lookalikes(pool, scores, new Set(['I42']));
     expect(ids).toEqual(['I41', 'I40']);
     expect(pending).toBe(2);
+  });
+});
+
+describe('byFolder', () => {
+  // Best first: a big pack (P), a small folder (S), pictures in no folder (-).
+  const ids = ['P1', 'S1', 'P2', 'n1', 'P3', 'P4', 'S2', 'P5', 'n2', 'P6', 'S3', 'S4'];
+  const folderOf = new Map(
+    ids.filter((id) => id[0] !== 'n').map((id) => [id, id[0] === 'P' ? 'pack' : 'small']),
+  );
+
+  it("shows each folder's best 3, then its next as a stack of the rest, where it ranks", () => {
+    const { ids: shown, stacks } = byFolder(ids, folderOf, new Set());
+    expect(shown).toEqual(['P1', 'S1', 'P2', 'n1', 'P3', 'P4', 'S2', 'n2', 'S3', 'S4']);
+    // S4 is the only one left of its folder: a stack of one is just the picture.
+    expect(stacks).toEqual({ P4: { folderId: 'pack', count: 3 } });
+  });
+
+  it('opens a stack: the whole rest of the folder, together, where the stack was', () => {
+    const { ids: shown, stacks } = byFolder(ids, folderOf, new Set(['pack']));
+    expect(shown).toEqual(['P1', 'S1', 'P2', 'n1', 'P3', 'P4', 'P5', 'P6', 'S2', 'n2', 'S3', 'S4']);
+    expect(stacks).toEqual({});
   });
 });
 

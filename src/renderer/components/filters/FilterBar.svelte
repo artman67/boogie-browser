@@ -45,7 +45,7 @@
     view.result?.sections?.find((s) => s.kind === 'looks')?.start ?? view.result?.ids.length ?? 0,
   );
   const elsewhere = $derived(view.result?.sections ? looksStart - view.result.total : 0);
-  const lookalikes = $derived((view.result?.ids.length ?? 0) - looksStart);
+  const lookalikes = $derived(view.result?.looksTotal ?? 0);
 
   // The scope's size without any filter, from the counts the library already keeps.
   const scopeTotal = $derived.by<number | null>(() => {

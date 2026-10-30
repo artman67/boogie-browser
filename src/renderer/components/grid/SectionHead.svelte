@@ -57,11 +57,16 @@
   {#if section.kind === 'looks'}
     <div class="div">
       <span>Looks like {quoted(view.filter.keywords?.trim() ?? '')}</span><span class="n"
-        >{count.toLocaleString()}</span
+        >{(view.result?.looksTotal ?? count).toLocaleString()}</span
       >
       {#if view.result?.looksPending}<span class="n"
           >· {view.result.looksPending.toLocaleString()} pictures not read yet</span
         >{/if}
+      {#if view.looks.all}
+        <button class="fold" onclick={() => view.showAllLooks(false)}>Group by folder</button>
+      {:else if Object.keys(view.result?.looksStacks ?? {}).length || view.looks.open.length}
+        <button class="fold" onclick={() => view.showAllLooks(true)}>Show all</button>
+      {/if}
     </div>
   {:else}
     {#if divider !== null}
@@ -113,6 +118,14 @@
     flex: 1;
     height: 1px;
     background: var(--line);
+  }
+  .fold {
+    order: 1; /* after the line */
+    font-weight: 500;
+    color: var(--mu);
+  }
+  .fold:hover {
+    color: var(--tx);
   }
   .row {
     display: flex;

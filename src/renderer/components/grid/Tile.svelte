@@ -29,8 +29,10 @@
     isNew: boolean;
     /** Set only on the one tile being hover-previewed. */
     hover: { kind: 'video' | 'gif' | 'audio'; src: string } | null;
+    /** Picture search: this tile stands for more pictures from its folder (clicking shows them). */
+    stack?: { count: number; folder: string } | null;
   }
-  let { id, x, y, w, h, kind, showNames, showMeta, isNew, hover }: Props = $props();
+  let { id, x, y, w, h, kind, showNames, showMeta, isNew, hover, stack = null }: Props = $props();
 
   let loaded = $state(false);
   let broken = $state(false);
@@ -86,6 +88,7 @@
 
 <div
   class="tile"
+  class:stack={!!stack}
   class:sel={selected}
   class:pri={primary}
   role="option"
@@ -141,6 +144,7 @@
         onloadeddata={() => (videoReady = true)}
       ></video>
     {/if}
+    {#if stack}<span class="more">+{stack.count.toLocaleString()} more</span>{/if}
     {#if b}
       <div class="badges">
         {#if isNew}<span class="new" title="New from outside"></span>{/if}
@@ -156,7 +160,9 @@
     {/if}
   </div>
   {#if b && (showNames || showMeta)}
-    {#if showNames}<div class="nm"><span>{b.name}</span></div>{/if}
+    {#if showNames}<div class="nm">
+        <span>{stack ? `More from ${stack.folder}` : b.name}</span>
+      </div>{/if}
     {#if showMeta}<div class="mt" class:tight={!showNames}>{meta}</div>{/if}
   {/if}
 </div>
@@ -308,6 +314,42 @@
   }
   .mt.tight {
     margin-top: 6px;
+  }
+
+  /* Picture search's stack: the folder's next picture, dimmed, standing for the rest of it. */
+  .stack .th {
+    overflow: visible;
+  }
+  .stack .th::before,
+  .stack .th::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: 5px;
+    background: var(--chip);
+    border: 1px solid var(--fa);
+  }
+  .stack .th::before {
+    transform: translate(4px, -4px);
+  }
+  .stack .th::after {
+    transform: translate(8px, -8px);
+    opacity: 0.6;
+  }
+  .stack img {
+    border-radius: 5px;
+    filter: brightness(0.45);
+  }
+  .more {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    font-size: 15px;
+    font-weight: 600;
+    color: #fff;
+    pointer-events: none;
   }
 
   /* Selection: the primary item (the one the inspector shows) gets the strong ring. */

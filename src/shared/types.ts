@@ -383,7 +383,17 @@ export interface QueryRequest {
    * everything else. Without keywords, those pictures are the whole result.
    */
   looksLike?: string;
+  /**
+   * Picture search shows each folder's best LOOKS_PER_FOLDER pictures; the folder's next one
+   * stands for the rest of them (QueryResult.looksStacks), so one big pack can't fill the results.
+   */
+  looksByFolder?: boolean;
+  /** With looksByFolder: folders whose pictures are all shown, together, where their stack was. */
+  looksOpen?: string[];
 }
+
+/** Picture search pictures shown per folder before the rest of the folder becomes one stack. */
+export const LOOKS_PER_FOLDER = 3;
 
 /** A run of QueryResult.ids under one heading. */
 export interface ResultSection {
@@ -413,6 +423,13 @@ export interface QueryResult {
   partialKeywords?: boolean;
   /** With looksLike: pictures in the scope that picture search hasn't read yet. */
   looksPending?: number;
+  /** With looksLike: every picture that looks like the words, folded away or not. */
+  looksTotal?: number;
+  /**
+   * With looksByFolder: the closed stacks, by the id of the picture shown for each. `count` is how
+   * many pictures opening it shows (that one included).
+   */
+  looksStacks?: Record<string, { folderId: string; count: number }>;
 }
 
 // ───────────────────────── Mutations ─────────────────────────

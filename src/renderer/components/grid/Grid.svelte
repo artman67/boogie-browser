@@ -76,6 +76,13 @@
     const end = sections.find((s) => s.kind === 'looks')?.start ?? ids.length;
     return end - sections[firstElsewhere].start;
   });
+  /** Picture search's closed stacks, by the picture shown for each, with the folder's name. */
+  const stacks = $derived.by(() => {
+    const out = new Map<string, { count: number; folder: string; folderId: string }>();
+    for (const [id, s] of Object.entries(view.result?.looksStacks ?? {}))
+      out.set(id, { ...s, folder: library.folder(s.folderId)?.node.name ?? 'this folder' });
+    return out;
+  });
   const folderChildren = $derived(
     view.scope.kind === 'folder' ? (library.folder(view.scope.id)?.node.children ?? []) : [],
   );
@@ -247,6 +254,8 @@
     const id = tileId(e.target);
     if (!id) return;
     focus.region = 'grid';
+    const stack = stacks.get(id);
+    if (stack && !e.shiftKey && !e.ctrlKey && !e.metaKey) return view.openStack(stack.folderId);
     if (e.shiftKey) selection.select(id, 'range', ids);
     else if (e.ctrlKey || e.metaKey) selection.select(id, 'toggle');
     else selection.select(id, 'replace');
@@ -523,6 +532,7 @@
               w={layout.w[i]}
               h={layout.h[i]}
               isNew={newIds.has(ids[i])}
+              stack={stacks.get(ids[i])}
             />
           {:else}
             <Tile
@@ -536,6 +546,7 @@
               showMeta={view.showMeta}
               isNew={newIds.has(ids[i])}
               hover={hover?.id === ids[i] ? hover : null}
+              stack={stacks.get(ids[i])}
             />
           {/if}
         {/each}
