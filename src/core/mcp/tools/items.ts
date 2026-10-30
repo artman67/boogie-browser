@@ -42,6 +42,12 @@ export const SearchInput = z.strictObject({
     .describe(
       'Keywords over names, tags, notes, URLs and folder names. Each word matches the start of a word ("arm" finds "Armchair", not "Charmoy"); a "quoted phrase" matches anywhere. space = AND, -word excludes, OR, ( ). Results come best match first unless sort_by or ascending is given.',
     ),
+  looks_like: z
+    .string()
+    .optional()
+    .describe(
+      'Picture search: what the picture shows ("woman in a red dress"), matched by AI. Best first, less sure toward the end. Keyword matches for query come first.',
+    ),
   tags: z.array(z.string()).optional(),
   tags_mode: z
     .enum(['all', 'any', 'exact'])
@@ -181,7 +187,7 @@ export function buildQuery(
     : a.ascending !== undefined
       ? { by: 'IMPORT' as OrderBy, ascending: a.ascending }
       : null;
-  return { scope, filter, sort };
+  return { scope, filter, sort, ...(a.looks_like?.trim() && { looksLike: a.looks_like.trim() }) };
 }
 
 /** A saved filter by name (or its position, as list_smart_folders shows it). */
@@ -211,15 +217,24 @@ export function registerItemTools(tool: Tool): void {
     async (args, call) => {
       const state = await openLibrary(call);
       const result = await call.api.query(buildQuery(args, state));
+      // Picture search's matches come after the keyword ones and page with them.
+      const looksFrom = result.sections?.find((s) => s.kind === 'looks')?.start;
+      const total = args.looks_like?.trim() ? result.ids.length : result.total;
       const offset = args.offset ?? 0;
       const ids = result.ids.slice(offset, offset + (args.limit ?? 50));
       const folders = new FolderIndex(state.folders);
       const { items } = await getItemsInOrder(call.api, ids);
       return {
-        total: result.total,
+        total,
         offset,
         returned: items.length,
-        has_more: offset + items.length < result.total,
+        has_more: offset + items.length < total,
+        ...(looksFrom !== undefined && args.query?.trim() && { looks_like_from: looksFrom }),
+        ...(result.looksPending
+          ? {
+              looks_like_note: `Picture search hasn't read ${result.looksPending} of these pictures yet (it reads the library open in the window, in the background).`,
+            }
+          : {}),
         ...(result.partialKeywords
           ? { note: 'No word starts with the query, so these items match it inside a word.' }
           : {}),

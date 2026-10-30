@@ -62,8 +62,27 @@
   const isList = $derived(kind === 'list');
   const listLevel = $derived(width >= 700 ? 0 : width >= 640 ? 1 : 2);
   const ids = $derived(view.result?.ids ?? EMPTY_IDS);
-  /** A search that also found matches outside the scope: the scope's own, then each folder's. */
+  /**
+   * A search that also found matches outside the scope: the scope's own, then each folder's; then
+   * the pictures that look like the words.
+   */
   const sections = $derived(view.result?.sections);
+  /** The first section from elsewhere: it also carries the "Elsewhere in the library" divider. */
+  const firstElsewhere = $derived(
+    sections?.findIndex((s) => s.kind === 'folder' || s.kind === 'none') ?? -1,
+  );
+  const elsewhereCount = $derived.by(() => {
+    if (!sections || firstElsewhere < 0) return 0;
+    const end = sections.find((s) => s.kind === 'looks')?.start ?? ids.length;
+    return end - sections[firstElsewhere].start;
+  });
+  /** Picture search's closed stacks, by the picture shown for each, with the folder's name. */
+  const stacks = $derived.by(() => {
+    const out = new Map<string, { count: number; folder: string; folderId: string }>();
+    for (const [id, s] of Object.entries(view.result?.looksStacks ?? {}))
+      out.set(id, { ...s, folder: library.folder(s.folderId)?.node.name ?? 'this folder' });
+    return out;
+  });
   const folderChildren = $derived(
     view.scope.kind === 'folder' ? (library.folder(view.scope.id)?.node.children ?? []) : [],
   );
@@ -88,10 +107,10 @@
       padTop: isList ? 0 : 14,
       padBottom: isList ? 16 : 64, // room for the selection bar
       listRowH: 44,
-      // The first section from elsewhere also carries the "Elsewhere in the library" divider.
+      // Picture search's section is only a divider.
       sections: sections?.map((s, k) => ({
         start: s.start,
-        headerH: HEAD_H + (k === 1 ? DIVIDER_H : 0),
+        headerH: s.kind === 'looks' ? DIVIDER_H : HEAD_H + (k === firstElsewhere ? DIVIDER_H : 0),
       })),
     }),
   );
@@ -235,6 +254,8 @@
     const id = tileId(e.target);
     if (!id) return;
     focus.region = 'grid';
+    const stack = stacks.get(id);
+    if (stack && !e.shiftKey && !e.ctrlKey && !e.metaKey) return view.openStack(stack.folderId);
     if (e.shiftKey) selection.select(id, 'range', ids);
     else if (e.ctrlKey || e.metaKey) selection.select(id, 'toggle');
     else selection.select(id, 'replace');
@@ -498,7 +519,7 @@
           <SectionHead
             section={h.s}
             count={h.count}
-            divider={h.k === 1 ? ids.length - h.s.start : null}
+            divider={h.k === firstElsewhere ? elsewhereCount : null}
             y={h.y - shift}
           />
         {/each}
@@ -511,6 +532,7 @@
               w={layout.w[i]}
               h={layout.h[i]}
               isNew={newIds.has(ids[i])}
+              stack={stacks.get(ids[i])}
             />
           {:else}
             <Tile
@@ -524,6 +546,7 @@
               showMeta={view.showMeta}
               isNew={newIds.has(ids[i])}
               hover={hover?.id === ids[i] ? hover : null}
+              stack={stacks.get(ids[i])}
             />
           {/if}
         {/each}

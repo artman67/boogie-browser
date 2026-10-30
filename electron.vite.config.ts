@@ -5,7 +5,15 @@ import { resolve } from 'node:path';
 export default defineConfig({
   main: {
     plugins: [externalizeDepsPlugin()],
-    build: { rollupOptions: { input: { index: resolve('src/app/main.ts') } } },
+    build: {
+      rollupOptions: {
+        input: {
+          index: resolve('src/app/main.ts'),
+          // Picture search's model runs in a worker thread (src/core/looks/model.ts finds it).
+          looksWorker: resolve('src/core/looks/worker.ts'),
+        },
+      },
+    },
   },
   preload: {
     plugins: [externalizeDepsPlugin()],

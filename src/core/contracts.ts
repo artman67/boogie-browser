@@ -476,6 +476,8 @@ export interface MediaService {
   preview(srcPath: string, cacheKey: string, maxEdge?: number): Promise<string>;
   /** 64-bit perceptual hash (dHash) as 16 hex chars. */
   dhash(imagePath: string): Promise<string>;
+  /** The picture squeezed to exactly w x h, as RGB bytes (transparency flattened onto white). */
+  rgb(imagePath: string, w: number, h: number): Promise<Uint8Array>;
   /** Streamed md5 of the file. Aborting stops the read and rejects with the abort reason. */
   md5(path: string, signal?: AbortSignal): Promise<string>;
   /** Formats Chromium can display directly in <img>/<video>. */

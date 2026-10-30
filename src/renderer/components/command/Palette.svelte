@@ -133,10 +133,21 @@
     if (!q) return void (images = null);
     const t = setTimeout(async () => {
       try {
-        const res = await api.query({ scope, filter, sort: null });
+        const res = await api.query({
+          scope,
+          filter,
+          sort: null,
+          looksLike: q,
+          looksByFolder: true,
+        });
         const briefs = res.ids.length ? await api.getBriefs(res.ids.slice(0, 9)) : [];
         if (mine !== seq) return;
-        images = { total: res.total, thumbs: briefs.map((b) => ({ id: b.id, url: b.thumbUrl })) };
+        // Pictures that look like the words count too, folded away or not.
+        const looksStart = res.sections?.find((s) => s.kind === 'looks')?.start ?? res.ids.length;
+        images = {
+          total: looksStart + (res.looksTotal ?? 0),
+          thumbs: briefs.map((b) => ({ id: b.id, url: b.thumbUrl })),
+        };
       } catch {
         if (mine === seq) images = null;
       }

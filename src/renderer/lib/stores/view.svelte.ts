@@ -46,6 +46,16 @@ class ViewStore {
   /** A checkerboard behind thumbnails, to see transparency. Kept on this computer. */
   checker = $state(readJSON<boolean>('gridChecker', false) === true);
 
+  /**
+   * Picture search for the search in `key`: every picture (`all`), or each folder's best few and
+   * a stack for the rest, with the stacks in `open` opened. A new search starts folded again.
+   */
+  looks = $state.raw<{ key: string; all: boolean; open: string[] }>({
+    key: '',
+    all: false,
+    open: [],
+  });
+
   back = $state.raw<Visit[]>([]);
   forward = $state.raw<Visit[]>([]);
 
@@ -189,6 +199,18 @@ class ViewStore {
     this.run(0);
   }
 
+  /** Show all of a folder's pictures where its stack was. */
+  openStack(folderId: string): void {
+    this.looks = { ...this.looks, open: [...this.looks.open, folderId] };
+    this.run(0);
+  }
+
+  /** Picture search shows every picture, or each folder's best few and a stack for the rest. */
+  showAllLooks(all: boolean): void {
+    this.looks = { ...this.looks, all, open: [] };
+    this.run(0);
+  }
+
   /** Re-run the query for something the user did (debounced; stale responses are dropped). */
   run(delay = 120): void {
     clearTimeout(this.timer);
@@ -225,12 +247,19 @@ class ViewStore {
     const seq = ++this.seq;
     const scanning = this.scanning;
     this.loading = true;
+    const scope = $state.snapshot(this.scope) as Scope;
+    const filter = $state.snapshot(this.filter) as FilterSpec;
+    const key = JSON.stringify([scope, filter]);
+    if (this.looks.key !== key) this.looks = { key, all: false, open: [] };
     try {
       const res = await api.query({
-        scope: $state.snapshot(this.scope) as Scope,
-        filter: $state.snapshot(this.filter) as FilterSpec,
+        scope,
+        filter,
         sort: this.sort ? ($state.snapshot(this.sort) as SortSpec) : null,
         elsewhere: true,
+        looksLike: this.filter.keywords,
+        looksByFolder: !this.looks.all,
+        looksOpen: this.looks.open,
       });
       if (seq !== this.seq) return;
       this.result = res;

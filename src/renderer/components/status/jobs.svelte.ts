@@ -38,6 +38,10 @@ export function jobText(j: JobProgress): string {
       return known ? `Exporting ${of}` : 'Exporting…';
     case 'merge':
       return known ? `Merging ${of}` : 'Merging…';
+    case 'looks':
+      // Picture search: downloading its model (in MB), then reading each picture once.
+      if (/^Downloading/.test(j.label)) return known ? `${j.label}, ${of} MB` : `${j.label}…`;
+      return known ? `${j.label}, ${of}` : `${j.label}…`;
     default:
       return j.label || 'Working…';
   }
@@ -177,6 +181,7 @@ function jobName(j: JobProgress): string {
     thumbnails: 'Thumbnails',
     export: 'Export',
     merge: 'Merge',
+    looks: 'Picture search',
   }[j.kind];
 }
 

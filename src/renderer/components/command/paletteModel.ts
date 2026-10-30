@@ -265,7 +265,7 @@ export function buildPalette(input: PaletteInput): PaletteSection[] {
         : [plain(`Search for ${quoted(text)}`)],
     ...(imgs && imgs.total === 0 && { detail: 'No items' }),
     action: { kind: 'search', text: input.text },
-    path: 'Searches names, tags, notes, links and folder names',
+    path: 'Searches names, tags, notes, links, folder names and what pictures show',
   };
   add({
     title: 'Images',

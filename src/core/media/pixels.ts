@@ -23,6 +23,23 @@ export async function decodeRaw(
   return { data: stdout, bands };
 }
 
+/** The picture squeezed to exactly w x h as RGB bytes, transparency flattened onto white. */
+export async function decodeRgb(
+  ctx: MediaContext,
+  path: string,
+  w: number,
+  h: number,
+): Promise<Uint8Array> {
+  const { data, bands } = await decodeRaw(ctx, path, w, h);
+  const rgba = toRgba(data, bands, w * h);
+  const out = new Uint8Array(w * h * 3);
+  for (let i = 0; i < w * h; i++) {
+    const a = rgba[i * 4 + 3] / 255;
+    for (let c = 0; c < 3; c++) out[i * 3 + c] = Math.round(rgba[i * 4 + c] * a + 255 * (1 - a));
+  }
+  return out;
+}
+
 /** 1 band = gray, 2 = gray + alpha, 3 = RGB, 4 = RGBA; always returned as RGBA. */
 export function toRgba(data: Uint8Array, bands: number, pixels: number): Uint8Array {
   if (bands === 4) return data instanceof Uint8Array ? data : new Uint8Array(data);

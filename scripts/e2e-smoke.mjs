@@ -75,7 +75,12 @@ rmSync(exportDir, { recursive: true, force: true });
 mkdirSync(exportDir, { recursive: true });
 rmSync(join(home, 'config/window.json'), { force: true });
 
-const env = { ...process.env, BOOGIE_HOME: home };
+// Picture search stays off unless asked for (BOOGIE_PICTURE_SEARCH=on with the model in <work>/home/cache).
+const env = {
+  ...process.env,
+  BOOGIE_HOME: home,
+  BOOGIE_PICTURE_SEARCH: process.env.BOOGIE_PICTURE_SEARCH ?? 'off',
+};
 
 // The real core gets a private COPY of the library (it may write an index, thumbnails...), opened read-only,
 // and settings that only start the agent server, on a free port, so the smoke never takes 41595/41593/41597.
@@ -611,6 +616,21 @@ try {
       return `lastModified ${edited.lastModified}`;
     });
   }
+
+  // Both models load in their worker thread (a packaged build must find it outside app.asar).
+  if (env.BOOGIE_PICTURE_SEARCH !== 'off')
+    await check('picture search reads every picture and answers a search', async () => {
+      const req = { scope: { kind: 'all' }, filter: {}, sort: null, looksLike: 'a painting' };
+      const res = await until(
+        async () => {
+          const r = await call('query', req);
+          return r.looksPending === 0 && r;
+        },
+        'every picture to be read',
+        25_000,
+      );
+      return `${res.ids.length} look alike`;
+    });
 
   await check(
     'agent server starts from settings, needs a token, stops when switched off',

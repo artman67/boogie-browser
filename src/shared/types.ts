@@ -378,14 +378,32 @@ export interface QueryRequest {
    * matches from the rest of the library, after the scope's own, grouped by folder (see sections).
    */
   elsewhere?: boolean;
+  /**
+   * Also list the pictures that look like these words (picture search), best first, after
+   * everything else. Without keywords, those pictures are the whole result.
+   */
+  looksLike?: string;
+  /**
+   * Picture search shows each folder's best LOOKS_PER_FOLDER pictures; the folder's next one
+   * stands for the rest of them (QueryResult.looksStacks), so one big pack can't fill the results.
+   */
+  looksByFolder?: boolean;
+  /** With looksByFolder: folders whose pictures are all shown, together, where their stack was. */
+  looksOpen?: string[];
 }
+
+/** Picture search pictures shown per folder before the rest of the folder becomes one stack. */
+export const LOOKS_PER_FOLDER = 3;
 
 /** A run of QueryResult.ids under one heading. */
 export interface ResultSection {
   /** Index in ids of the first item; the section runs to the next section's start. */
   start: number;
-  /** 'here': the scope's own matches. 'folder': matches elsewhere, filed under folderId. 'none': elsewhere, in no folder. */
-  kind: 'here' | 'folder' | 'none';
+  /**
+   * 'here': the scope's own matches. 'folder': matches elsewhere, filed under folderId. 'none':
+   * elsewhere, in no folder. 'looks': pictures in the scope that look like the words (looksLike).
+   */
+  kind: 'here' | 'folder' | 'none' | 'looks';
   folderId?: string;
 }
 
@@ -403,6 +421,15 @@ export interface QueryResult {
   bestMatch?: boolean;
   /** No word started with a keyword, so the keywords matched inside words instead (Eagle's way). */
   partialKeywords?: boolean;
+  /** With looksLike: pictures in the scope that picture search hasn't read yet. */
+  looksPending?: number;
+  /** With looksLike: every picture that looks like the words, folded away or not. */
+  looksTotal?: number;
+  /**
+   * With looksByFolder: the closed stacks, by the id of the picture shown for each. `count` is how
+   * many pictures opening it shows (that one included).
+   */
+  looksStacks?: Record<string, { folderId: string; count: number }>;
 }
 
 // ───────────────────────── Mutations ─────────────────────────
@@ -477,7 +504,7 @@ export interface UndoResult {
 
 export interface JobProgress {
   jobId: string;
-  kind: 'index' | 'import' | 'hash' | 'dupes' | 'thumbnails' | 'export' | 'merge';
+  kind: 'index' | 'import' | 'hash' | 'dupes' | 'thumbnails' | 'export' | 'merge' | 'looks';
   label: string;
   done: number;
   total: number;

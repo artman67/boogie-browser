@@ -22,6 +22,9 @@ This is an independent project. It is not made by or affiliated with the makers 
   for tags, ratings, notes, links and folders.
 - Search by keyword, tag, color, date, size and type. Smart folders and saved filters are read and
   written in Eagle's own format.
+- Picture search: type what a picture shows ("woman in a red dress") and pictures that look like
+  it come after the keyword matches, best first. It runs on your computer (SigLIP 2, a 690 MB
+  download on first start); the open library's pictures are read once in the background.
 - Folders, tags, tag groups, starred tags, trash, import from files and the clipboard.
 - Duplicate finder (exact and visually similar), and a triage mode for sorting new items quickly.
 - Every change goes into a history kept outside the library, and any change can be undone.
