@@ -1,5 +1,5 @@
-// Search by what is in the picture: "pretty girl" finds paintings of pretty girls whatever they are
-// named or tagged. Each picture is read once into a vector (a few hundred numbers saying what it
+// Search by what is in the picture: "horse in a field" finds paintings of horses in fields whatever
+// they are named or tagged. Each picture is read once into a vector (a few hundred numbers saying what it
 // shows); a search turns its words into a vector the same way and ranks pictures by closeness.
 // Only the window's library is read in the background; searching works on any library.
 import { join } from 'node:path';
@@ -22,7 +22,7 @@ const BATCH = 8;
 /**
  * Pictures count as looking like the words when they score this many standard deviations above
  * the average picture. Looser and "a dog" lists dogs, then things that are not dogs; tighter and
- * "pretty girl" in a portrait collection stops long before the pretty girls do. Best first, so
+ * "young woman" in a portrait collection stops long before the young women do. Best first, so
  * the doubtful ones are at the end.
  */
 const CUT_SD = 1.5;
